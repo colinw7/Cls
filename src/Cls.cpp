@@ -2097,7 +2097,7 @@ operator()(ClsFile *file1, ClsFile *file2)
   int cmp;
 
   if (nocase)
-    cmp = CStrUtil::cmpNoCase(file1->getName(), file2->getName());
+    cmp = CStrUtil::casecmp(file1->getName(), file2->getName());
   else
     cmp = CStrUtil::cmp(file1->getName(), file2->getName());
 

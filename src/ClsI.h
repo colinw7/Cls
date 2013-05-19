@@ -1,20 +1,5 @@
 #include <Cls.h>
 
-#if 0
-#include <CTime/CTime.h>
-#include <CEscape/CEscape.h>
-#include <CGlob/CGlob.h>
-#include <COS/COS.h>
-#include <COS/COSTerm.h>
-#include <CFile/CFile.h>
-#include <CFile/CDir.h>
-#include <CFileUtil/CFileUtil.h>
-#include <CStrUtil/CStrUtil.h>
-#include <CStrUtil/CStrFmt.h>
-#include <CStrNCase/CStrNCase.h>
-#include <CEnv/CEnv.h>
-#endif
-
 #define SECONDS_PER_DAY (24*60*60)
 
 static const char *

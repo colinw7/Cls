@@ -3,6 +3,7 @@
 
 #include <pwd.h>
 #include <grp.h>
+#include <cstdio>
 
 namespace COS {
   std::string getUserName(uint uid) {
@@ -20,7 +21,7 @@ namespace COS {
       else {
         char buffer[32];
 
-        sprintf(buffer, "%d", uid);
+        ::sprintf(buffer, "%d", uid);
 
         name = buffer;
       }
@@ -39,7 +40,7 @@ namespace COS {
     else {
       char buffer[32];
 
-      sprintf(buffer, "%d", gid);
+      ::sprintf(buffer, "%d", gid);
 
       group_name = buffer;
     }
