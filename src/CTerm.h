@@ -2,6 +2,7 @@
 #define CTERM_H
 
 #include <stdlib.h>
+#include <cstring>
 #include <unistd.h>
 #include <sys/ioctl.h>
 
