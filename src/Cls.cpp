@@ -16,6 +16,7 @@
 #include <cmath>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #include <algorithm>
 #include <iostream>

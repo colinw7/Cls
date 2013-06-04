@@ -18,9 +18,16 @@ ClsFile.cpp
 
 OBJS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
-LIBS = -lCls -lCOS -lCStrUtil -lCGlob -lncurses
+LIBS = -lCls -lCFile -lCOS -lCStrUtil -lCGlob -lncurses
 
-CPPFLAGS = -I$(INC_DIR) -I.
+CPPFLAGS = \
+-I. \
+-I$(INC_DIR) \
+-I../../CFile/include \
+-I../../COS/include \
+-I../../CStrUtil/include \
+-I../../CGlob/include \
+-I../../CUtil/include \
 
 LFLAGS = -L$(LIB_DIR)
 
@@ -35,7 +42,7 @@ $(OBJS): $(OBJ_DIR)/%.o: %.cpp
 .SUFFIXES: .cpp
 
 $(OBJ_DIR)/main.o: main.cpp
-	$(CC) $(CDEBUG) -o $(OBJ_DIR)/main.o -c main.cpp -I$(INC_DIR) -I.
+	$(CC) -c main.cpp -o $(OBJ_DIR)/main.o $(CPPFLAGS)
 
 $(LIB_DIR)/libCls.a: $(OBJS)
 	$(AR) crv $(LIB_DIR)/libCls.a $(OBJS)
