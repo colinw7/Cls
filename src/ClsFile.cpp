@@ -1,10 +1,10 @@
 #include <ClsFile.h>
+
 #include <CTime.h>
+#include <COSFile.h>
 
-#include <sys/stat.h>
-#include <string.h>
-#include <errno.h>
-
+#include <cerrno>
+#include <cstring>
 #include <iostream>
 
 #if 0
@@ -28,7 +28,7 @@ isDir()
   if (! init())
     return false;
 
-  if (! S_ISDIR(stat_->st_mode))
+  if (! COSFile::stat_is_dir(stat_))
     return false;
 
   return true;
@@ -41,7 +41,7 @@ isFIFO()
   if (! init())
     return false;
 
-  if (! S_ISFIFO(stat_->st_mode))
+  if (! COSFile::stat_is_fifo(stat_))
     return false;
 
   return true;
@@ -54,7 +54,7 @@ isChar()
   if (! init())
     return false;
 
-  if (! S_ISCHR(stat_->st_mode))
+  if (! COSFile::stat_is_char(stat_))
     return false;
 
   return true;
@@ -67,7 +67,7 @@ isBlock()
   if (! init())
     return false;
 
-  if (! S_ISBLK(stat_->st_mode))
+  if (! COSFile::stat_is_block(stat_))
     return false;
 
   return true;
@@ -80,7 +80,7 @@ isRegular()
   if (! init())
     return false;
 
-  if (! S_ISREG(stat_->st_mode))
+  if (! COSFile::stat_is_reg(stat_))
     return false;
 
   return true;
@@ -93,7 +93,7 @@ isLink()
   if (! init())
     return false;
 
-  if (! S_ISLNK(stat_->st_mode))
+  if (! COSFile::stat_is_link(stat_))
     return false;
 
   return true;
@@ -106,7 +106,7 @@ isSocket()
   if (! init())
     return false;
 
-  if (! S_ISSOCK(stat_->st_mode))
+  if (! COSFile::stat_is_socket(stat_))
     return false;
 
   return true;
