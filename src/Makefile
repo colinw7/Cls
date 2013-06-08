@@ -29,7 +29,13 @@ CPPFLAGS = \
 -I../../CGlob/include \
 -I../../CUtil/include \
 
-LFLAGS = -L$(LIB_DIR)
+LFLAGS = \
+-L$(LIB_DIR) \
+-L../../CFile/lib \
+-L../../COS/lib \
+-L../../CStrUtil/lib \
+-L../../CGlob/lib \
+-L../../CUtil/lib \
 
 clean:
 	$(RM) -f $(OBJ_DIR)/*.o
