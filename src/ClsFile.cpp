@@ -209,7 +209,7 @@ ClsFile::
 getCTime()
 {
   if (! init())
-    return NULL;
+    return 0;
 
   return ctime_;
 }
@@ -219,7 +219,7 @@ ClsFile::
 getMTime()
 {
   if (! init())
-    return NULL;
+    return 0;
 
   return mtime_;
 }
@@ -229,7 +229,7 @@ ClsFile::
 getATime()
 {
   if (! init())
-    return NULL;
+    return 0;
 
   return atime_;
 }
@@ -291,7 +291,7 @@ hasLinkStat()
   if (! init())
     return false;
 
-  return (l_stat_ != NULL && f_stat_ != NULL);
+  return (l_stat_ != 0 && f_stat_ != 0);
 }
 
 bool
@@ -299,7 +299,7 @@ ClsFile::
 init()
 {
   if (initialized_) {
-    if (f_stat_ == NULL && l_stat_ == NULL)
+    if (f_stat_ == 0 && l_stat_ == 0)
       return false;
 
     return true;
@@ -310,13 +310,13 @@ init()
   get_fstat();
   get_lstat();
 
-  if (f_stat_ == NULL && l_stat_ == NULL)
+  if (f_stat_ == 0 && l_stat_ == 0)
     return false;
 
-  if      (f_stat_ == NULL) {
+  if      (f_stat_ == 0) {
     stat_ = l_stat_;
   }
-  else if (l_stat_ == NULL) {
+  else if (l_stat_ == 0) {
     stat_ = f_stat_;
   }
   else {
@@ -337,7 +337,7 @@ bool
 ClsFile::
 get_fstat()
 {
-  if (f_stat_ != NULL)
+  if (f_stat_ != 0)
     return true;
 
   f_stat_ = new struct stat;
@@ -347,7 +347,7 @@ get_fstat()
   if (error != 0) {
     delete f_stat_;
 
-    f_stat_ = NULL;
+    f_stat_ = 0;
 
     return false;
   }
@@ -359,7 +359,7 @@ bool
 ClsFile::
 get_lstat()
 {
-  if (l_stat_ != NULL)
+  if (l_stat_ != 0)
     return true;
 
   l_stat_ = new struct stat;
@@ -371,7 +371,7 @@ get_lstat()
 
     delete l_stat_;
 
-    l_stat_ = NULL;
+    l_stat_ = 0;
 
     return false;
   }

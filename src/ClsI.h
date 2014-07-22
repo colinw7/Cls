@@ -1,5 +1,3 @@
-#include <Cls.h>
-
 #define SECONDS_PER_DAY (24*60*60)
 
 static const char *

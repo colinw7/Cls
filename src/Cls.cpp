@@ -65,7 +65,7 @@ class ClsCompareSizes {
   bool reverse;
 
  public:
-  ClsCompareSizes(bool reverse1) :
+  explicit ClsCompareSizes(bool reverse1) :
    reverse(reverse1) {
   }
 
@@ -877,6 +877,8 @@ exec()
     outputLine("</body>");
     outputLine("</html>");
   }
+
+  leave_dir();
 }
 
 void
@@ -992,13 +994,13 @@ get_dir_files(ClsFile *, vector<ClsFile *> &files)
   vector<string> dir_files;
 
   DIR *dir = opendir(".");
-  if (dir == NULL) return;
+  if (! dir) return;
 
   string filename;
 
   struct dirent *dirent = readdir(dir);
 
-  while (dirent != NULL) {
+  while (dirent) {
     if (dirent->d_name[0] == '.' &&
          (dirent->d_name[1] == '\0' ||
           (dirent->d_name[1] == '.' && dirent->d_name[2] == '\0')))
@@ -2128,7 +2130,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     CTime *ctime1 = file1->getCTime();
     CTime *ctime2 = file2->getCTime();
 
-    if (ctime1 != NULL && ctime2 != NULL)
+    if (ctime1 != 0 && ctime2 != 0)
       cmp = (int) ctime2->diff(*ctime1);
     else
       cmp = ctime1 - ctime2;
@@ -2137,7 +2139,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     CTime *atime1 = file1->getATime();
     CTime *atime2 = file2->getATime();
 
-    if (atime1 != NULL && atime2 != NULL)
+    if (atime1 != 0 && atime2 != 0)
       cmp = (int) atime2->diff(*atime1);
     else
       cmp = atime1 - atime2;
@@ -2146,7 +2148,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     CTime *mtime1 = file1->getMTime();
     CTime *mtime2 = file2->getMTime();
 
-    if (mtime1 != NULL && mtime2 != NULL)
+    if (mtime1 != 0 && mtime2 != 0)
       cmp = (int) mtime2->diff(*mtime1);
     else
       cmp = mtime1 - mtime2;
@@ -2549,8 +2551,7 @@ exec_to_string(const string &command)
   exec_string = "";
 
   FILE *fp = popen(command.c_str(), "r");
-
-  if (fp == NULL) return "";
+  if (! fp) return "";
 
   int c;
 
@@ -2640,12 +2641,41 @@ exec_file(ClsFile *file, const string &exec_cmd)
 
   exec_cmd1 += exec_cmd.substr(pos1);
 
-  if (::system(exec_cmd1.c_str()) < 0) {
-    cerr << "exec failed for " << exec_cmd1 << endl;
-    return 1;
-  }
+  int len1 = exec_cmd1.size();
 
-  return 0;
+  if      (len1 > 5 && exec_cmd1.substr(0, 5) == "echo ") {
+    int i = 5;
+
+    while (i < len1 && isspace(exec_cmd1[i]))
+      ++i;
+
+    std::cout << exec_cmd1.substr(i) << endl;
+
+    return true;
+  }
+  else if (len1 > 3 && exec_cmd1.substr(0, 3) == "rm ") {
+    int i = 3;
+
+    while (i < len1 && isspace(exec_cmd1[i]))
+      ++i;
+
+    int rc = unlink(exec_cmd1.substr(i).c_str());
+
+    if (rc == 0) {
+      std::cout << "rm " << exec_cmd1.substr(i) << std::endl;
+      return true;
+    }
+    else
+      return false;
+  }
+  else {
+    if (::system(exec_cmd1.c_str()) < 0) {
+      cerr << "exec failed for " << exec_cmd1 << endl;
+      return 1;
+    }
+
+    return 0;
+  }
 }
 
 #if 0
