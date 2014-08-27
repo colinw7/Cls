@@ -43,12 +43,12 @@ clean:
 	$(RM) -f $(BIN_DIR)/Cls
 
 $(OBJS): $(OBJ_DIR)/%.o: %.cpp
-	$(CC) -c $< -o $(OBJ_DIR)/$*.o $(CPPFLAGS)
+	$(CC) $(CDEBUG) -c $< -o $(OBJ_DIR)/$*.o $(CPPFLAGS)
 
 .SUFFIXES: .cpp
 
 $(OBJ_DIR)/main.o: main.cpp
-	$(CC) -c main.cpp -o $(OBJ_DIR)/main.o $(CPPFLAGS)
+	$(CC) $(CDEBUG) -c main.cpp -o $(OBJ_DIR)/main.o $(CPPFLAGS)
 
 $(LIB_DIR)/libCls.a: $(OBJS)
 	$(AR) crv $(LIB_DIR)/libCls.a $(OBJS)
