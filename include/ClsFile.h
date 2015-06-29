@@ -1,5 +1,5 @@
-#ifndef CLS_FILE_H
-#define CLS_FILE_H
+#ifndef ClsFile_H
+#define ClsFile_H
 
 #include <string>
 #include <sys/types.h>
@@ -7,19 +7,6 @@
 class CTime;
 
 class ClsFile {
- private:
-  bool         initialized_;
-  bool         use_link_;
-  std::string  name_;
-  std::string  lname_;
-  struct stat *stat_;
-  struct stat *f_stat_;
-  struct stat *l_stat_;
-  CTime       *ctime_;
-  CTime       *mtime_;
-  CTime       *atime_;
-  bool         output_;
-
  public:
   ClsFile(bool use_link, const std::string &name, const std::string &lname = "") :
    initialized_(false), use_link_(use_link), name_(name), lname_(lname),
@@ -73,6 +60,19 @@ class ClsFile {
   bool init();
   bool get_fstat();
   bool get_lstat();
+
+ private:
+  bool         initialized_;
+  bool         use_link_;
+  std::string  name_;
+  std::string  lname_;
+  struct stat *stat_;
+  struct stat *f_stat_;
+  struct stat *l_stat_;
+  CTime       *ctime_;
+  CTime       *mtime_;
+  CTime       *atime_;
+  bool         output_;
 };
 
 #endif

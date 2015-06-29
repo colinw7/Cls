@@ -160,6 +160,61 @@ class ClsFilterData {
 };
 
 class Cls {
+ public:
+  Cls();
+ ~Cls();
+
+  CTime *getCurrentTime() const { return current_time_; }
+
+  uint getUserUid() const { return user_uid_; }
+
+  void           init();
+  void           process_args(int argc, char **argv);
+  void           exec();
+  void           list_dir_entry(ClsFile *file);
+  void           list_dir(ClsFile *file);
+  void           get_dir_files(ClsFile *file, std::vector<ClsFile *> &files);
+  void           add_dir_files(const std::string &name, std::vector<ClsFile *> &files);
+  ClsFilterType  filter_file(ClsFile *file);
+  void           list_dir_files(std::vector<ClsFile *> &files);
+  void           recurse_files(std::vector<ClsFile *> &files);
+  void           free_dir_files(std::vector<ClsFile *> &files);
+  void           list_file(ClsFile *file);
+  bool           is_bad_filename(ClsFile *file);
+  bool           is_bad_file(ClsFile *file);
+  void           print_list_data(ClsData *file);
+  void           set_max_filelen(std::vector<ClsFile *> &files);
+  void           set_perm(std::string &str, int, int);
+  std::string    type_to_string(int);
+  std::string    size_to_string(ClsData *);
+  std::string    uid_to_string(int uid);
+  std::string    gid_to_string(int gid);
+  std::string    inode_to_string(int);
+  std::string    blocks_to_string(int);
+  std::string    time_to_string(CTime *time);
+  std::string    color_to_string(ClsColorType color);
+  void           split_files(const std::vector<ClsFile *> &files, std::vector<ClsFile *> &dfiles,
+                             std::vector<ClsFile *> &rfiles);
+  void           sort_files(std::vector<ClsFile *> &files);
+  void           output_files(std::vector<ClsFile *> &files);
+  std::string    encode_name(const std::string &name);
+  void           get_screen_size();
+  int            get_term_cols();
+  ClsFileType    decode_type_char(const std::string &opt, int c);
+  bool           enter_dir(const std::string &dir);
+  void           leave_dir();
+  std::string    exec_to_string(const std::string &command);
+  bool           special_glob_match(const std::string &file, ClsColorType *color);
+  int            exec_file(ClsFile *file, const std::string &command);
+//void           outputTypeEscape(ClsData *list_data);
+//void           outputTypeEscape(ClsData *list_data, const std::string &str);
+//void           outputTypeEscape(CFileType type, const std::string &str);
+//CFileType      get_data_type(ClsFile *file);
+//std::string    get_data_type_str(ClsFile *file);
+  void           outputColored(ClsColorType color, const std::string &str);
+  void           outputLine(const std::string &str);
+  void           output(const std::string &str);
+
  private:
   typedef std::vector<std::string> DirStack;
   typedef std::vector<CGlob *>     GlobArray;
@@ -247,61 +302,6 @@ class Cls {
   bool               read_files;
 
   bool               use_colors;
-
- public:
-  Cls();
- ~Cls();
-
-  CTime *getCurrentTime() const { return current_time_; }
-
-  uint getUserUid() const { return user_uid_; }
-
-  void           init();
-  void           process_args(int argc, char **argv);
-  void           exec();
-  void           list_dir_entry(ClsFile *file);
-  void           list_dir(ClsFile *file);
-  void           get_dir_files(ClsFile *file, std::vector<ClsFile *> &files);
-  void           add_dir_files(const std::string &name, std::vector<ClsFile *> &files);
-  ClsFilterType  filter_file(ClsFile *file);
-  void           list_dir_files(std::vector<ClsFile *> &files);
-  void           recurse_files(std::vector<ClsFile *> &files);
-  void           free_dir_files(std::vector<ClsFile *> &files);
-  void           list_file(ClsFile *file);
-  bool           is_bad_filename(ClsFile *file);
-  bool           is_bad_file(ClsFile *file);
-  void           print_list_data(ClsData *file);
-  void           set_max_filelen(std::vector<ClsFile *> &files);
-  void           set_perm(std::string &str, int, int);
-  std::string    type_to_string(int);
-  std::string    size_to_string(ClsData *);
-  std::string    uid_to_string(int uid);
-  std::string    gid_to_string(int gid);
-  std::string    inode_to_string(int);
-  std::string    blocks_to_string(int);
-  std::string    time_to_string(CTime *time);
-  std::string    color_to_string(ClsColorType color);
-  void           split_files(const std::vector<ClsFile *> &files, std::vector<ClsFile *> &dfiles,
-                             std::vector<ClsFile *> &rfiles);
-  void           sort_files(std::vector<ClsFile *> &files);
-  void           output_files(std::vector<ClsFile *> &files);
-  std::string    encode_name(const std::string &name);
-  void           get_screen_size();
-  int            get_term_cols();
-  ClsFileType    decode_type_char(const std::string &opt, int c);
-  bool           enter_dir(const std::string &dir);
-  void           leave_dir();
-  std::string    exec_to_string(const std::string &command);
-  bool           special_glob_match(const std::string &file, ClsColorType *color);
-  int            exec_file(ClsFile *file, const std::string &command);
-//void           outputTypeEscape(ClsData *list_data);
-//void           outputTypeEscape(ClsData *list_data, const std::string &str);
-//void           outputTypeEscape(CFileType type, const std::string &str);
-//CFileType      get_data_type(ClsFile *file);
-//std::string    get_data_type_str(ClsFile *file);
-  void           outputColored(ClsColorType color, const std::string &str);
-  void           outputLine(const std::string &str);
-  void           output(const std::string &str);
 };
 
 #endif
