@@ -47,11 +47,11 @@ $(OBJS): $(OBJ_DIR)/%.o: %.cpp
 
 .SUFFIXES: .cpp
 
-$(OBJ_DIR)/main.o: main.cpp
-	$(CC) $(CDEBUG) -c main.cpp -o $(OBJ_DIR)/main.o $(CPPFLAGS)
+$(OBJ_DIR)/ClsMain.o: ClsMain.cpp
+	$(CC) $(CDEBUG) -c ClsMain.cpp -o $(OBJ_DIR)/ClsMain.o $(CPPFLAGS)
 
 $(LIB_DIR)/libCls.a: $(OBJS)
 	$(AR) crv $(LIB_DIR)/libCls.a $(OBJS)
 
-$(BIN_DIR)/Cls: $(OBJ_DIR)/main.o $(LIB_DIR)/libCls.a
-	$(CC) $(LDEBUG) -o $(BIN_DIR)/Cls $(OBJ_DIR)/main.o $(LFLAGS) $(LIBS)
+$(BIN_DIR)/Cls: $(OBJ_DIR)/ClsMain.o $(LIB_DIR)/libCls.a
+	$(CC) $(LDEBUG) -o $(BIN_DIR)/Cls $(OBJ_DIR)/ClsMain.o $(LFLAGS) $(LIBS)

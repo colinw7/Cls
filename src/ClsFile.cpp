@@ -8,7 +8,7 @@
 #include <iostream>
 
 #if 0
-#include <CFileUtil/CFileUtil.h>
+#include <CFileUtil.h>
 #endif
 
 bool
