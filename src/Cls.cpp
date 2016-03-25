@@ -1142,10 +1142,10 @@ list_file(ClsFile *file)
     if (! quiet) {
       if (full_path)
         cerr << "Bad filename '" << current_dir << "/" <<
-                     file->getName() << "'" << endl;
+                file->getName() << "'" << endl;
       else
         cerr << "Bad filename '" << relative_dir << "/" <<
-                     file->getName() << "'" << endl;
+                file->getName() << "'" << endl;
     }
     else {
       if (full_path)
