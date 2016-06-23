@@ -18,11 +18,10 @@ ClsFile.cpp
 
 OBJS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
-LIBS = -lCls -lCFile -lCOS -lCStrUtil -lCGlob -lncurses
-
 CPPFLAGS = \
 -I. \
 -I$(INC_DIR) \
+-I../../CFileUtil/include \
 -I../../CFile/include \
 -I../../COS/include \
 -I../../CStrUtil/include \
@@ -31,11 +30,15 @@ CPPFLAGS = \
 
 LFLAGS = \
 -L$(LIB_DIR) \
+-L../../CFileUtil/lib \
 -L../../CFile/lib \
+-L../../CRegExp/lib \
 -L../../COS/lib \
 -L../../CStrUtil/lib \
 -L../../CGlob/lib \
 -L../../CUtil/lib \
+
+LIBS = -lCls -lCFileUtil -lCFile -lCOS -lCRegExp -lCStrUtil -lCGlob -ltre -lncurses
 
 clean:
 	$(RM) -f $(OBJ_DIR)/*.o
