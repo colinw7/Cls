@@ -5,10 +5,9 @@ main(int argc, char **argv)
 {
   Cls ls;
 
-  ls.processArgs(argc, argv);
+  ls.process_args(argc, argv);
 
-  if (! ls.exec())
-    return 1;
+  ls.exec();
 
   return 0;
 }

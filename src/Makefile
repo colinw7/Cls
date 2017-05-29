@@ -14,11 +14,15 @@ all: $(BIN_DIR)/Cls
 
 SRC = \
 Cls.cpp \
-ClsFile.cpp
+ClsFile.cpp \
+ClsFilterData.cpp \
+ClsMain.cpp \
+CTime.cpp \
 
 OBJS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRC))
 
 CPPFLAGS = \
+-std=c++11 \
 -I. \
 -I$(INC_DIR) \
 -I../../CFileUtil/include \
@@ -38,7 +42,9 @@ LFLAGS = \
 -L../../CGlob/lib \
 -L../../CUtil/lib \
 
-LIBS = -lCls -lCFileUtil -lCFile -lCOS -lCRegExp -lCStrUtil -lCGlob -ltre -lncurses
+LIBS = \
+-lCls -lCFileUtil -lCFile -lCOS -lCRegExp -lCStrUtil -lCGlob -lCUtil \
+-ltre -lncurses
 
 clean:
 	$(RM) -f $(OBJ_DIR)/*.o
@@ -49,9 +55,6 @@ $(OBJS): $(OBJ_DIR)/%.o: %.cpp
 	$(CC) $(CDEBUG) -c $< -o $(OBJ_DIR)/$*.o $(CPPFLAGS)
 
 .SUFFIXES: .cpp
-
-$(OBJ_DIR)/ClsMain.o: ClsMain.cpp
-	$(CC) $(CDEBUG) -c ClsMain.cpp -o $(OBJ_DIR)/ClsMain.o $(CPPFLAGS)
 
 $(LIB_DIR)/libCls.a: $(OBJS)
 	$(AR) crv $(LIB_DIR)/libCls.a $(OBJS)

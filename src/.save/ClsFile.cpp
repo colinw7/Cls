@@ -1,14 +1,15 @@
 #include <ClsFile.h>
-#include <Cls.h>
 
 #include <CTime.h>
 #include <COSFile.h>
-#include <CFile.h>
-#include <CFileUtil.h>
 
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+
+#if 0
+#include <CFileUtil.h>
+#endif
 
 bool
 ClsFile::
@@ -128,9 +129,19 @@ isElf()
   if (! init())
     return false;
 
-  CFile file(name_);
+  if (isLink())
+    return false;
 
-  return (! isLink() && CFileUtil::isELF(&file) != CFILE_TYPE_NONE);
+#if 0
+  FILE *file = fopen(name_.c_str(), "r");
+
+  bool rc = isELF(file);
+
+  fclose(fp);
+
+  return rc;
+#endif
+  return false;
 }
 
 size_t
@@ -198,7 +209,7 @@ ClsFile::
 getCTime()
 {
   if (! init())
-    return nullptr;
+    return 0;
 
   return ctime_;
 }
@@ -208,7 +219,7 @@ ClsFile::
 getMTime()
 {
   if (! init())
-    return nullptr;
+    return 0;
 
   return mtime_;
 }
@@ -218,7 +229,7 @@ ClsFile::
 getATime()
 {
   if (! init())
-    return nullptr;
+    return 0;
 
   return atime_;
 }
@@ -280,7 +291,7 @@ hasLinkStat()
   if (! init())
     return false;
 
-  return (lstat_ && fstat_);
+  return (l_stat_ != 0 && f_stat_ != 0);
 }
 
 bool
@@ -288,7 +299,7 @@ ClsFile::
 init()
 {
   if (initialized_) {
-    if (! fstat_ && ! lstat_)
+    if (f_stat_ == 0 && l_stat_ == 0)
       return false;
 
     return true;
@@ -296,23 +307,23 @@ init()
 
   initialized_ = true;
 
-  getFStat();
-  getLStat();
+  get_fstat();
+  get_lstat();
 
-  if (! fstat_ && ! lstat_)
+  if (f_stat_ == 0 && l_stat_ == 0)
     return false;
 
-  if      (! fstat_) {
-    stat_ = lstat_;
+  if      (f_stat_ == 0) {
+    stat_ = l_stat_;
   }
-  else if (! lstat_) {
-    stat_ = fstat_;
+  else if (l_stat_ == 0) {
+    stat_ = f_stat_;
   }
   else {
-    if (useLink_)
-      stat_ = fstat_;
+    if (use_link_)
+      stat_ = f_stat_;
     else
-      stat_ = lstat_;
+      stat_ = l_stat_;
   }
 
   ctime_ = new CTime(stat_->st_ctime);
@@ -324,19 +335,19 @@ init()
 
 bool
 ClsFile::
-getFStat()
+get_fstat()
 {
-  if (fstat_)
+  if (f_stat_ != 0)
     return true;
 
-  fstat_ = new struct stat;
+  f_stat_ = new struct stat;
 
-  int error = ::stat(name_.c_str(), fstat_);
+  int error = ::stat(name_.c_str(), f_stat_);
 
   if (error != 0) {
-    delete fstat_;
+    delete f_stat_;
 
-    fstat_ = nullptr;
+    f_stat_ = 0;
 
     return false;
   }
@@ -346,22 +357,21 @@ getFStat()
 
 bool
 ClsFile::
-getLStat()
+get_lstat()
 {
-  if (lstat_)
+  if (l_stat_ != 0)
     return true;
 
-  lstat_ = new struct stat;
+  l_stat_ = new struct stat;
 
-  int error = ::lstat(name_.c_str(), lstat_);
+  int error = ::lstat(name_.c_str(), l_stat_);
 
   if (error != 0) {
-    if (! ls_->isSilent())
-      std::cerr << name_ << ": " << strerror(errno) << std::endl;
+    std::cerr << name_ << ": " << strerror(errno) << std::endl;
 
-    delete lstat_;
+    delete l_stat_;
 
-    lstat_ = nullptr;
+    l_stat_ = 0;
 
     return false;
   }

@@ -1,15 +1,8 @@
 #include <Cls.h>
-#include <ClsHelp.h>
-#include <ClsFilterData.h>
+#include <ClsI.h>
 
 #include <COSUser.h>
-#include <COSTerm.h>
-#include <COSFile.h>
-#include <COSProcess.h>
-#include <CEnv.h>
-#ifdef CTERM_SUPPORT
-#include <CEscape.h>
-#endif
+#include <CTerm.h>
 #include <CStrUtil.h>
 #include <CStrFmt.h>
 #include <CDir.h>
@@ -21,68 +14,68 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
-#include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 #include <sys/param.h>
 
 #include <algorithm>
+#include <iostream>
 
 #ifndef major
 # define major(rdev) ((rdev) >> 8)
 # define minor(rdev) ((rdev) & 0xFF)
 #endif
 
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::string;
+using std::vector;
+
 class ClsCompareNames {
+ private:
+  bool nocase;
+  bool reverse;
+
  public:
   ClsCompareNames(bool nocase1, bool reverse1) :
    nocase(nocase1), reverse(reverse1) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
-
- private:
-  bool nocase { false };
-  bool reverse { false };
 };
 
-//---
-
 class ClsCompareTimes {
+ private:
+  bool ctime;
+  bool utime;
+  bool mtime;
+  bool reverse;
+
  public:
   ClsCompareTimes(bool ctime1, bool utime1, bool mtime1, bool reverse1) :
    ctime(ctime1), utime(utime1), mtime(mtime1), reverse(reverse1) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
-
- private:
-  bool ctime { false };
-  bool utime { false };
-  bool mtime { false };
-  bool reverse { false };
 };
 
-//---
-
 class ClsCompareSizes {
+ private:
+  bool reverse;
+
  public:
   explicit ClsCompareSizes(bool reverse1) :
    reverse(reverse1) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
-
- private:
-  bool reverse { false };
 };
-
-//---
 
 class ClsCompareExtensions {
  public:
   int operator()(ClsFile *file1, ClsFile *file2);
 };
-
-//-------------------
 
 Cls::
 Cls()
@@ -93,7 +86,6 @@ Cls()
 Cls::
 ~Cls()
 {
-  delete filterData_;
 }
 
 void
@@ -135,9 +127,8 @@ init()
   show_bad_user   = false;
   show_bad_other  = false;
   show_empty_dirs = false;
-  sort_type       = ClsSortType::NAME;
+  sort_type       = SORT_NAME;
   force_width     = 0;
-  filterData_     = new ClsFilterData;
   my_umask        = COSUser::getUMask();
   full_path       = false;
   no_path         = false;
@@ -146,37 +137,34 @@ init()
   exec_init_cmd_  = "";
   exec_term_cmd_  = "";
   exec_cmd_       = "";
+  quiet           = false;
+  html            = false;
+//type_escape     = false;
+  datatype        = false;
+  bad_names       = false;
 
-  setTestFlags ();
-  setQuiet     (false);
-  setHtml      (false);
-  setTypeEscape(false);
-  setDataType  (false);
-  setBadNames  (false);
-  setPreview   (false);
-  setSilent    (false);
-  setUseColors (true);
-
-  if (CEnvInst.exists("CTERM_VERSION"))
-    setTypeEscape(true);
+#if 0
+  if (getenv("CTERM_VERSION"))
+    type_escape = true;
+#endif
 
   num_columns = 0;
 
-  lsFormat_ = "";
+  ls_format = "";
 
   max_len  = -1;
   max_size = 0;
 
-  if (! COSTerm::getCharSize(&screen_rows, &screen_cols)) {
-    CEnvInst.get("COLUMNS", screen_cols);
-    CEnvInst.get("LINES"  , screen_rows);
+  if (! CTerm::getCharSize(&screen_rows, &screen_cols)) {
+    if (getenv("COLUMNS")) screen_cols = atoi(getenv("COLUMNS"));
+    if (getenv("ROWS"   )) screen_rows = atoi(getenv("ROWS"   ));
   }
 
   if (screen_cols <= 0) screen_cols = 80;
   if (screen_rows <= 0) screen_rows = 60;
 
-  if (CEnvInst.exists("CLS_DEBUG_SCREEN_SIZE"))
-    std::cerr << "Columns: " << screen_cols << " Rows: " << screen_rows << std::endl;
+  if (getenv("CLS_DEBUG_SCREEN_SIZE"))
+    cerr << "Columns: " << screen_cols << " Rows: " << screen_rows << endl;
 
   list_pos     = 0;
   list_max_pos = screen_cols - 1;
@@ -186,20 +174,22 @@ init()
   current_time_ = new CTime();
 
   if (my_umask != 0022 && my_umask != 0002)
-    std::cerr << "Bad umask " << my_umask << std::endl;
+    cerr << "Bad umask " << my_umask << endl;
 
-  readFiles_ = false;
+  read_files = false;
+
+  use_colors = true;
 }
 
 void
 Cls::
-processArgs(int argc, char **argv)
+process_args(int argc, char **argv)
 {
   for (int i = 1; i < argc; ++i) {
     if (argv[i][0] == '-') {
       if (argv[i][1] != '-') {
         if (argv[i][1] == '\0')
-          readFiles_ = true;
+          read_files = true;
 
         for (int j = 1; argv[i][j] != '\0'; ++j) {
           switch (argv[i][j]) {
@@ -224,7 +214,7 @@ processArgs(int argc, char **argv)
               s_flag = false;
               r_flag = false;
 
-              sort_type = ClsSortType::NONE;
+              sort_type = SORT_NONE;
 
               break;
             case 'g':
@@ -286,7 +276,7 @@ processArgs(int argc, char **argv)
               break;
             case 't':
               t_flag = true;
-              sort_type = ClsSortType::TIME;
+              sort_type = SORT_TIME;
               break;
             case 'u':
               u_flag = true;
@@ -300,7 +290,7 @@ processArgs(int argc, char **argv)
               T_flag = false;
               break;
             case 'z':
-              filterData_->setShowNonZero(false);
+              filter_data_.setShowNonZero(false);
               break;
             case 'A':
               A_flag = true;
@@ -329,7 +319,7 @@ processArgs(int argc, char **argv)
               R_flag = true;
               break;
             case 'S':
-              sort_type = ClsSortType::SIZE;
+              sort_type = SORT_SIZE;
               break;
             case 'T':
               T_flag = true;
@@ -339,10 +329,10 @@ processArgs(int argc, char **argv)
               C_flag = false;
               break;
             case 'X':
-              sort_type = ClsSortType::EXTENSION;
+              sort_type = SORT_EXTENSION;
               break;
             case 'Z':
-              filterData_->setShowZero(false);
+              filter_data_.setShowZero(false);
               break;
             case '1':
             case '2':
@@ -363,427 +353,395 @@ processArgs(int argc, char **argv)
 
               break;
             case '?':
-              std::cerr << usage << std::endl;
+              cerr << usage << endl;
 
               exit(0);
             default:
-              std::cerr << "Invalid switch -" << argv[i][j] << std::endl;
+              cerr << "Invalid switch -" << argv[i][j] << endl;
               break;
           }
         }
       }
       else {
-        std::string arg = std::string(&argv[i][2]);
-
-        if      (arg == "format") {
+        if      (strcmp(&argv[i][2], "format") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --format" << std::endl;
+            cerr << "Missing argument for --format" << endl;
             continue;
           }
 
-          lsFormat_ = argv[i];
+          ls_format = argv[i];
         }
-        else if (arg == "color" || arg == "colour") {
-          setUseColors(true);
+        else if (strcmp(&argv[i][2], "color" ) == 0 ||
+                 strcmp(&argv[i][2], "colour") == 0) {
+          use_colors = true;
         }
-        else if (arg == "nocolor" || arg == "nocolour") {
-          setUseColors(false);
+        else if (strcmp(&argv[i][2], "nocolor" ) == 0 ||
+                 strcmp(&argv[i][2], "nocolour") == 0) {
+          use_colors = false;
         }
-        else if (arg.substr(0, 7) == "special") {
-          ClsColorType color = ClsColorType::SPECIAL;
+        else if (strncmp(&argv[i][2], "special", 7) == 0) {
+          int color = COLOR_SPECIAL;
 
           if (argv[i][9] != '\0') {
             int color_num = atoi(&argv[i][9]);
 
-            if      (color_num == 0) color = ClsColorType::NORMAL;
-            else if (color_num == 1) color = ClsColorType::DIRECTORY;
-            else if (color_num == 2) color = ClsColorType::EXECUTABLE;
-            else if (color_num == 3) color = ClsColorType::LINK;
-            else if (color_num == 4) color = ClsColorType::PIPE;
-            else if (color_num == 5) color = ClsColorType::SPECIAL;
-            else if (color_num == 6) color = ClsColorType::BAD_FILE;
-            else                     color = ClsColorType::BAD_FILE;
+            if      (color_num == 0)
+              color = COLOR_NORMAL;
+            else if (color_num == 1)
+              color = COLOR_DIRECTORY;
+            else if (color_num == 2)
+              color = COLOR_EXECUTABLE;
+            else if (color_num == 3)
+              color = COLOR_LINK;
+            else if (color_num == 4)
+              color = COLOR_PIPE;
+            else if (color_num == 5)
+              color = COLOR_SPECIAL;
+            else if (color_num == 6)
+              color = COLOR_BAD_FILE;
+            else
+              color = COLOR_BAD_FILE;
           }
 
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --special" << std::endl;
+            cerr << "Missing argument for --special" << endl;
             continue;
           }
 
           CGlob *glob = new CGlob(argv[i]);
 
-          special_globs[int(color)].push_back(glob);
+          special_globs[color].push_back(glob);
         }
-        else if (arg == "nlink") {
+        else if (strcmp(&argv[i][2], "nlink") == 0) {
           nlink_flag = true;
         }
-        else if (arg == "user") {
-          filterData_->setOnlyUser(true);
+        else if (strcmp(&argv[i][2], "user") == 0) {
+          filter_data_.setOnlyUser(true);
         }
-        else if (arg == "links") {
+        else if (strcmp(&argv[i][2], "links") == 0) {
           show_links = true;
         }
-        else if (arg == "nolinks") {
+        else if (strcmp(&argv[i][2], "nolinks") == 0) {
           show_links = false;
         }
-        else if (arg == "empty_dirs") {
+        else if (strcmp(&argv[i][2], "empty_dirs") == 0) {
           show_empty_dirs = true;
         }
-        else if (arg == "bad") {
+        else if (strcmp(&argv[i][2], "bad") == 0) {
           show_bad       = true;
           show_bad_user  = true;
           show_bad_other = true;
         }
-        else if (arg == "mybad") {
+        else if (strcmp(&argv[i][2], "mybad") == 0) {
           show_bad       = true;
           show_bad_user  = true;
           show_bad_other = false;
         }
-        else if (arg == "nobad") {
+        else if (strcmp(&argv[i][2], "nobad") == 0) {
           show_bad       = false;
           show_bad_user  = false;
           show_bad_other = false;
         }
-        else if (arg == "zero") {
-          filterData_->setShowNonZero(false);
+        else if (strcmp(&argv[i][2], "zero") == 0) {
+          filter_data_.setShowNonZero(false);
         }
-        else if (arg == "nonzero") {
-          filterData_->setShowZero(false);
+        else if (strcmp(&argv[i][2], "nonzero") == 0) {
+          filter_data_.setShowZero(false);
         }
-        else if (arg == "width") {
+        else if (strcmp(&argv[i][2], "width") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --width" << std::endl;
+            cerr << "Missing argument for --width" << endl;
             continue;
           }
 
           force_width = atoi(argv[i]);
 
           if (force_width == 0) {
-            std::cerr << "Invalid value for --width" << std::endl;
+            cerr << "Invalid value for --width" << endl;
             continue;
           }
         }
-        else if (arg == "screen_cols") {
+        else if (strcmp(&argv[i][2], "screen_cols") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --screen_cols" << std::endl;
+            cerr << "Missing argument for --screen_cols" << endl;
             continue;
           }
 
           screen_cols = atoi(argv[i]);
 
           if (screen_cols <= 0) {
-            std::cerr << "Invalid value for --screen_cols" << std::endl;
+            cerr << "Invalid value for --screen_cols" << endl;
             continue;
           }
         }
-        else if (arg == "sort") {
+        else if (strcmp(&argv[i][2], "sort") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --sort" << std::endl;
+            cerr << "Missing argument for --sort" << endl;
             continue;
           }
 
-          std::string arg1 = argv[i];
-
-          if      (arg1 == "none"     ) sort_type = ClsSortType::NONE;
-          else if (arg1 == "name"     ) sort_type = ClsSortType::NAME;
-          else if (arg1 == "time"     ) sort_type = ClsSortType::TIME;
-          else if (arg1 == "size"     ) sort_type = ClsSortType::SIZE;
-          else if (arg1 == "extension") sort_type = ClsSortType::EXTENSION;
-          else {
-            std::cerr << "Invalid value '" << argc << "' for --sort" << std::endl;
-          }
+          if      (strcmp(argv[i], "none") == 0)
+            sort_type = SORT_NONE;
+          else if (strcmp(argv[i], "name") == 0)
+            sort_type = SORT_NAME;
+          else if (strcmp(argv[i], "time") == 0)
+            sort_type = SORT_TIME;
+          else if (strcmp(argv[i], "size") == 0)
+            sort_type = SORT_SIZE;
+          else if (strcmp(argv[i], "extension") == 0)
+            sort_type = SORT_EXTENSION;
+          else
+            cerr << "Invalid value '" << argv[i] << "' for --sort" << endl;
         }
-        else if (arg == "exclude_type") {
+#if 0
+        else if (strcmp(&argv[i][2], "exclude_type") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exclude_type" << std::endl;
+            cerr << "Missing argument for --exclude_type" << endl;
             continue;
           }
 
-          const char *exclude_type = argv[i];
+          char *exclude_type = argv[i];
 
-          filterData_->addExcludeFileType(exclude_type);
+          filter_data_.addExcludeFileType(exclude_type);
         }
-        else if (arg == "excl" || arg == "exclude") {
+#endif
+        else if (strcmp(&argv[i][2], "excl"   ) == 0 ||
+                 strcmp(&argv[i][2], "exclude") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exclude" << std::endl;
+            cerr << "Missing argument for --exclude" << endl;
             continue;
           }
 
-          const char *exclude = argv[i];
+          char *exclude = argv[i];
 
           for (uint j = 0; exclude[j] != '\0'; ++j) {
-            ClsFileType type = decodeTypeChar("exclude", exclude[j]);
+            int type = decode_type_char("exclude", exclude[j]);
 
-            if (type != ClsFileType::NONE)
-              filterData_->addExcludeType((int) type);
+            if (type != 0)
+              filter_data_.addExcludeType(type);
           }
         }
-        else if (arg == "include_type") {
+#if 0
+        else if (strcmp(&argv[i][2], "include_type") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --include_type" << std::endl;
+            cerr << "Missing argument for --include_type" << endl;
             continue;
           }
 
-          const char *include_type = argv[i];
+          char *include_type = argv[i];
 
-          filterData_->addIncludeFileType(include_type);
+          filter_data_.addIncludeFileType(include_type);
         }
-        else if (arg == "incl" || arg == "include") {
+#endif
+        else if (strcmp(&argv[i][2], "incl"   ) == 0 ||
+                 strcmp(&argv[i][2], "include") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --include" << std::endl;
+            cerr << "Missing argument for --include" << endl;
             continue;
           }
 
-          const char *include = argv[i];
+          char *include = argv[i];
 
           for (uint j = 0; include[j] != '\0'; ++j) {
-            ClsFileType type = decodeTypeChar("include", include[j]);
+            int type = decode_type_char("include", include[j]);
 
-            if (type != ClsFileType::NONE)
-              filterData_->addIncludeType((int) type);
+            if (type != 0)
+              filter_data_.addIncludeType(type);
           }
         }
-        else if (arg == "newer") {
+        else if (strcmp(&argv[i][2], "newer") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --newer" << std::endl;
+            cerr << "Missing argument for --newer" << endl;
             continue;
           }
 
-          filterData_->setNewer(atoi(argv[i]));
+          filter_data_.setNewer(atoi(argv[i]));
         }
-        else if (arg == "older") {
+        else if (strcmp(&argv[i][2], "older") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --older" << std::endl;
+            cerr << "Missing argument for --older" << endl;
             continue;
           }
 
-          filterData_->setOlder(atoi(argv[i]));
+          filter_data_.setOlder(atoi(argv[i]));
         }
-        else if (arg == "larger") {
+        else if (strcmp(&argv[i][2], "larger") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --larger" << std::endl;
+            cerr << "Missing argument for --larger" << endl;
             continue;
           }
 
-          filterData_->setLarger(atoi(argv[i]));
+          filter_data_.setLarger(atoi(argv[i]));
         }
-        else if (arg == "smaller") {
+        else if (strcmp(&argv[i][2], "smaller") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --smaller" << std::endl;
+            cerr << "Missing argument for --smaller" << endl;
             continue;
           }
 
-          filterData_->setSmaller(atoi(argv[i]));
+          filter_data_.setSmaller(atoi(argv[i]));
         }
-        else if (arg == "match") {
+        else if (strcmp(&argv[i][2], "match") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --match" << std::endl;
+            cerr << "Missing argument for --match" << endl;
             continue;
           }
 
-          std::vector<std::string> words;
+          vector<string> words;
 
           CStrUtil::addWords(argv[i], words);
 
           uint num_words = words.size();
 
           for (uint j = 0; j < num_words; ++j)
-            filterData_->addMatch(words[j]);
+            filter_data_.addMatch(words[j]);
         }
-        else if (arg == "nomatch") {
+        else if (strcmp(&argv[i][2], "nomatch") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --nomatch" << std::endl;
+            cerr << "Missing argument for --nomatch" << endl;
             continue;
           }
 
-          std::vector<std::string> words;
+          vector<string> words;
 
           CStrUtil::addWords(argv[i], words);
 
           uint num_words = words.size();
 
           for (uint j = 0; j < num_words; ++j)
-            filterData_->addNoMatch(words[j]);
+            filter_data_.addNoMatch(words[j]);
         }
-        else if (arg == "full_path" || arg == "fullpath") {
+        else if (strcmp(&argv[i][2], "full_path") == 0 ||
+                 strcmp(&argv[i][2], "fullpath" ) == 0) {
           full_path = true;
         }
-        else if (arg == "no_path" || arg == "nopath") {
+        else if (strcmp(&argv[i][2], "no_path") == 0 ||
+                 strcmp(&argv[i][2], "nopath" ) == 0) {
           no_path = true;
         }
-        else if (arg == "show_secs") {
+        else if (strcmp(&argv[i][2], "show_secs") == 0) {
           show_secs = true;
         }
-        else if (arg == "nocase") {
+        else if (strcmp(&argv[i][2], "nocase") == 0) {
           nocase = true;
         }
-        else if (arg == "exec_init") {
+        else if (strcmp(&argv[i][2], "exec_init") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec_init" << std::endl;
+            cerr << "Missing argument for --exec_init" << endl;
             continue;
           }
 
           exec_init_cmd_ = argv[i];
         }
-        else if (arg == "exec_term") {
+        else if (strcmp(&argv[i][2], "exec_term") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec_term" << std::endl;
+            cerr << "Missing argument for --exec_term" << endl;
             continue;
           }
 
           exec_term_cmd_ = argv[i];
         }
-        else if (arg == "exec") {
+        else if (strcmp(&argv[i][2], "exec") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec" << std::endl;
+            cerr << "Missing argument for --exec" << endl;
             continue;
           }
 
           exec_cmd_ = argv[i];
         }
-        else if (arg == "filter") {
+        else if (strcmp(&argv[i][2], "filter") == 0) {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --filter" << std::endl;
+            cerr << "Missing argument for --filter" << endl;
             continue;
           }
 
-          filterData_->setExec(argv[i]);
+          filter_data_.setExec(argv[i]);
         }
-        else if (arg == "test" || arg == "testf") {
-          ++i;
-
-          if (i >= argc) {
-            std::cerr << "Missing argument for --test" << std::endl;
-            continue;
-          }
-
-          setTestFlags(argv[i], arg == "testf");
+        else if (strcmp(&argv[i][2], "quiet") == 0) {
+          quiet = true;
         }
-        else if (arg == "quiet") {
-          setQuiet(true);
+        else if (strcmp(&argv[i][2], "html") == 0) {
+          html = true;
         }
-        else if (arg == "html") {
-          setHtml(true);
+#if 0
+        else if (strcmp(&argv[i][2], "type_escape") == 0) {
+          type_escape = true;
         }
-        else if (arg == "type_escape") {
-          setTypeEscape(true);
+        else if (strcmp(&argv[i][2], "no_type_escape") == 0) {
+          type_escape = false;
         }
-        else if (arg == "no_type_escape") {
-          setTypeEscape(false);
+#endif
+#if 0
+        else if (strcmp(&argv[i][2], "datatype" ) == 0 ||
+                 strcmp(&argv[i][2], "data_type") == 0) {
+          datatype = true;
         }
-        else if (arg == "datatype" || arg == "data_type") {
-          setDataType(true);
+#endif
+        else if (strcmp(&argv[i][2], "bad_names") == 0) {
+          bad_names = true;
         }
-        else if (arg == "bad_names") {
-          setBadNames(true);
-        }
-        else if (arg == "preview") {
-          setPreview(true);
-        }
-        else if (arg == "silent") {
-          setSilent(true);
-        }
-        else if (arg == "h" || arg == "help") {
-          std::cerr << usage << std::endl;
+        else if (strcmp(&argv[i][2], "h") == 0 ||
+                 strcmp(&argv[i][2], "help") == 0) {
+          cerr << usage << endl;
 
           exit(0);
         }
-        else {
-          std::cerr << "Invalid switch --" << arg << std::endl;
-        }
+        else
+          cerr << "Invalid switch --" << &argv[i][2] << endl;
       }
     }
     else {
-      ClsFile *file = new ClsFile(this, L_flag, argv[i]);
+      ClsFile *file = new ClsFile(L_flag, argv[i]);
 
-      files_.push_back(file);
+      files.push_back(file);
     }
   }
 }
 
 void
 Cls::
-setTestFlags(const std::string &str, bool names)
-{
-  testNames_ = names;
-
-  for (std::size_t i = 0; i < str.size(); ++i) {
-    if      (str[i] == 'b') testFlags_ |= uint(ClsFileType::BLK);
-    else if (str[i] == 'c') testFlags_ |= uint(ClsFileType::CHR);
-    else if (str[i] == 'd') testFlags_ |= uint(ClsFileType::DIR);
-    else if (str[i] == 'e') testFlags_ |= uint(ClsFileType::EXISTS);
-    else if (str[i] == 'f') testFlags_ |= uint(ClsFileType::REG);
-    // g : set-group-ID
-    // G : owned by the effective group ID
-    else if (str[i] == 'h') testFlags_ |= uint(ClsFileType::LNK);
-    // k : sticky bit set
-    else if (str[i] == 'L') testFlags_ |= uint(ClsFileType::LNK);
-    // O : owned by the effective user ID
-    else if (str[i] == 'p') testFlags_ |= uint(ClsFileType::FIFO);
-    // r : readable
-    // s : size greater than zero
-    else if (str[i] == 'S') testFlags_ |= uint(ClsFileType::SOCK);
-    // t : is tty
-    // u : set-user-ID bit is sets tty
-    // w : writable
-    else if (str[i] == 'x') testFlags_ |= uint(ClsFileType::EXEC);
-
-    else if (str[i] == 'B') testFlags_ |= uint(ClsFileType::BAD);
-    else if (str[i] == 'E') testFlags_ |= uint(ClsFileType::ELF);
-    else if (str[i] == 'G') testFlags_ |= uint(ClsFileType::SPECIAL); // glob special
-
-    else {
-      std::cerr << "Invalid test flag '" << str[i] << "'" << std::endl;
-    }
-  }
-}
-
-bool
-Cls::
 exec()
 {
-  // read filenames fron stdin
-  if (readFiles_) {
-    // read input
-    std::string file_string;
+  if (read_files) {
+    string file_string;
 
     int c = fgetc(stdin);
 
@@ -796,19 +754,16 @@ exec()
       c = fgetc(stdin);
     }
 
-    //----
-
-    // remove colors from input string
-    if (isUseColors()) {
+    if (use_colors) {
       for (uint i = 0; i < 7; ++i) {
-        std::string color = colorToString((ClsColorType) i);
+        string color = color_to_string((ClsColorType) i);
 
         uint color_len = color.size();
 
-        auto pos = file_string.find(color);
+        string::size_type pos = file_string.find(color);
 
-        if (pos != std::string::npos) {
-          std::string file_string1 = file_string.substr(0, pos);
+        if (pos != string::npos) {
+          string file_string1 = file_string.substr(0, pos);
 
           for (uint j = 0; j < color_len; ++j)
             file_string1 += " ";
@@ -818,39 +773,25 @@ exec()
       }
     }
 
-    //----
-
-    // split into word (filenames)
-    std::vector<std::string> words;
+    vector<string> words;
 
     CStrUtil::addWords(file_string, words);
 
-    for (const auto &word : words) {
-      ClsFile *file = new ClsFile(this, L_flag, word);
+    uint num_words = words.size();
 
-      files_.push_back(file);
+    for (uint i = 0; i < num_words; ++i) {
+      ClsFile *file = new ClsFile(L_flag, words[i]);
+
+      files.push_back(file);
     }
   }
 
-  //----
+  uint num_files = files.size();
 
-  // if no files then output current directory
-  if (files_.empty()) {
-    ClsFile *file = new ClsFile(this, L_flag, ".", ".");
+  for (uint i = 0; i < num_files; ++i)
+    files[i]->setLinkName(encode_name(files[i]->getName()));
 
-    files_.push_back(file);
-  }
-
-  //----
-
-  // set encoded name (remove special characters)
-  for (const auto &file : files_)
-    file->setLinkName(encodeName(file->getName()));
-
-  //----
-
-  // if has output format then turn off other format flags
-  if (lsFormat_ != "") {
+  if (ls_format != "") {
     l_flag = false;
     m_flag = false;
     x_flag = false;
@@ -858,18 +799,12 @@ exec()
     T_flag = false;
   }
 
-  //----
-
-  // if column output set current position and max position
   if (C_flag || x_flag || m_flag) {
     list_pos     = 0;
     list_max_pos = screen_cols;
   }
 
-  //----
-
-  // output header for html
-  if (isHtml()) {
+  if (html) {
     outputLine("<html>");
     outputLine("<head>");
     outputLine("</head>");
@@ -877,157 +812,98 @@ exec()
     outputLine("<pre>");
   }
 
-  //----
+  if (exec_init_cmd_ != "")
+    system(exec_init_cmd_.c_str());
 
-  // run init command if specified
-  if (exec_init_cmd_ != "") {
-    int status;
-
-    runCommand(exec_init_cmd_, status);
-  }
-
-  //----
-
-  // start at current directory
   dir_depth = 0;
 
-  enterDir(".");
+  enter_dir(".");
 
-  //----
+  if (num_files > 0) {
+    vector<ClsFile *> dfiles;
+    vector<ClsFile *> rfiles;
 
-  // output specified files
-  bool rc = true;
+    split_files(files, dfiles, rfiles);
 
-  // split input files into directory and regular files
-  FileArray dfiles, rfiles;
+    set_max_filelen(rfiles);
 
-  splitFiles(files_, dfiles, rfiles);
+    output_files(rfiles);
 
-  //---
+    set_max_filelen(dfiles);
 
-  // set max file len for regular files and output
-  setMaxFilelen(rfiles);
-
-  if (! outputFiles(rfiles))
-    rc = false;
-
-  //---
-
-  // set max file len for directory files and output
-  setMaxFilelen(dfiles);
-
-  if (d_flag) {
-    // output as normal files for -d flag
-    if (! outputFiles(dfiles))
-      rc = false;
-  }
-  else {
-    // if single directory and no regular files then list directory
-    uint num_dfiles = dfiles.size();
-    uint num_rfiles = rfiles.size();
-
-    if (num_dfiles == 1 && num_rfiles == 0) {
-      listDir(dfiles[0]);
+    if (d_flag) {
+      output_files(dfiles);
     }
     else {
-      // output each directory contents
-      for (const auto &dfile : dfiles)
-        listDirEntry(dfile);
+      uint num_dfiles = dfiles.size();
+      uint num_rfiles = rfiles.size();
+
+      if (num_dfiles == 1 && num_rfiles == 0)
+        list_dir(dfiles[0]);
+      else {
+        for (uint i = 0; i < num_dfiles; ++i)
+          list_dir_entry(dfiles[i]);
+      }
+    }
+  }
+  else {
+    ClsFile *file = new ClsFile(L_flag, ".", ".");
+
+    files.push_back(file);
+
+    set_max_filelen(files);
+
+    if (d_flag)
+      output_files(files);
+    else {
+      vector<ClsFile *> files1;
+
+      get_dir_files(files[0], files1);
+
+      list_dir_files(files1);
+
+      if (R_flag)
+        recurse_files(files1);
+
+      free_dir_files(files1);
     }
   }
 
-  //---
+  if (exec_term_cmd_ != "")
+    system(exec_term_cmd_.c_str());
 
-  // run term command if specified
-  if (exec_term_cmd_ != "") {
-    int status;
-
-    runCommand(exec_term_cmd_, status);
-  }
-
-  //---
-
-  // output html footer
-  if (isHtml()) {
+  if (html) {
     outputLine("</pre>");
     outputLine("</body>");
     outputLine("</html>");
   }
 
-  //---
-
-  leaveDir();
-
-  return rc;
+  leave_dir();
 }
 
-bool
+void
 Cls::
-testFiles(const FileArray &files, FileSet &fileSet)
+list_dir_entry(ClsFile *file)
 {
-  auto testAddFile = [&](bool b, ClsFile *file) {
-    if (b) fileSet.insert(file);
-  };
-
-  for (const auto &file : files) {
-    if (testFlags_ & uint(ClsFileType::FIFO))
-      testAddFile(file->isFIFO(), file);
-
-    if (testFlags_ & uint(ClsFileType::CHR))
-      testAddFile(file->isChar(), file);
-
-    if (testFlags_ & uint(ClsFileType::DIR))
-      testAddFile(file->isDir(), file);
-
-    if (testFlags_ & uint(ClsFileType::BLK))
-      testAddFile(file->isBlock(), file);
-
-    if (testFlags_ & uint(ClsFileType::REG))
-      testAddFile(file->isRegular(), file);
-
-    if (testFlags_ & uint(ClsFileType::LNK))
-      testAddFile(file->isLink(), file);
-
-    if (testFlags_ & uint(ClsFileType::SOCK))
-      testAddFile(file->isSocket(), file);
-
-    if (testFlags_ & uint(ClsFileType::BAD))
-      testAddFile(isBadFile(file) || isBadLink(file), file);
-
-    if (testFlags_ & uint(ClsFileType::EXISTS))
-      testAddFile(file->exists(), file);
-  }
-
-  return ! fileSet.empty();
-}
-
-bool
-Cls::
-listDirEntry(ClsFile *file)
-{
-  bool rc = true;
-
   if (! file->isDir())
-    return false;
+    return;
 
-  if (! enterDir(file->getName()))
-    return false;
+  if (! enter_dir(file->getName()))
+    return;
 
-  FileArray files;
+  vector<ClsFile *> files;
 
-  if (! getDirFiles(file, files))
-    rc = false;
+  get_dir_files(file, files);
 
   if (show_empty_dirs) {
     if (files.empty()) {
-      if (isHtml()) {
+      if (html)
         output("<a href='" + relative_dir1 + "'>" + relative_dir1 + "</a><br>");
-      }
       else {
-        if (isTypeEscape())
-          outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
+//      if (type_escape)
+//        outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
 
-        outputColored(ClsColorType::DIRECTORY, relative_dir1);
+        outputColored(COLOR_DIRECTORY, relative_dir1);
 
         outputLine("");
       }
@@ -1038,15 +914,14 @@ listDirEntry(ClsFile *file)
 
     int num_files1 = 0;
 
-    for (uint i = 0; i < num_files; ++i) {
+    for (uint i = 0; i < num_files; ++i)
       if (files[i]->getIsOutput())
         ++num_files1;
-    }
 
     if (num_files1 > 0) {
-      if (! isQuiet()) {
+      if (! quiet) {
         if (! full_path) {
-          if (isHtml())
+          if (html)
             output("<br>");
 
           if (! T_flag)
@@ -1054,9 +929,8 @@ listDirEntry(ClsFile *file)
         }
 
         if (! full_path) {
-          if (isHtml()) {
+          if      (html)
             output("<a href='" + relative_dir1 + "'>" + relative_dir1);
-          }
           else {
             if (T_flag) {
               for (int j = 0; j < dir_depth - 1; ++j)
@@ -1065,92 +939,84 @@ listDirEntry(ClsFile *file)
               output("|- ");
             }
 
-            if (isTypeEscape())
-              outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
+//          if (type_escape)
+//            outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
 
-            outputColored(ClsColorType::DIRECTORY, relative_dir1);
+            outputColored(COLOR_DIRECTORY, relative_dir1);
           }
 
           output(":");
 
-          if (isHtml())
+          if      (html)
             output("</a><br>");
 
           outputLine("");
         }
       }
 
-      if (! listDirFiles(files))
-        rc = false;
+      list_dir_files(files);
     }
   }
 
   if (R_flag)
-    recurseFiles(files);
+    recurse_files(files);
 
-  freeDirFiles(files);
+  free_dir_files(files);
 
-  leaveDir();
-
-  return rc;
+  leave_dir();
 }
 
-bool
+void
 Cls::
-listDir(ClsFile *file)
+list_dir(ClsFile *file)
 {
-  bool rc = true;
+  if (! enter_dir(file->getName()))
+    return;
 
-  if (! enterDir(file->getName()))
-    return false;
+  vector<ClsFile *> files;
 
-  if (! listCurrentDir(file))
-    rc = false;
+  get_dir_files(file, files);
 
-  leaveDir();
-
-  return rc;
-}
-
-bool
-Cls::
-listCurrentDir(ClsFile *file)
-{
-  bool rc = true;
-
-  FileArray files;
-
-  if (! getDirFiles(file, files))
-    rc = false;
-
-  if (! listDirFiles(files))
-    rc = false;
+  list_dir_files(files);
 
   if (R_flag)
-    recurseFiles(files);
+    recurse_files(files);
 
-  freeDirFiles(files);
+  free_dir_files(files);
 
-  return rc;
+  leave_dir();
 }
 
-bool
+void
 Cls::
-getDirFiles(ClsFile *, FileArray &files)
+get_dir_files(ClsFile *, vector<ClsFile *> &files)
 {
-  std::vector<std::string> dir_files;
+  vector<string> dir_files;
 
-  CDir dir(".");
+  DIR *dir = opendir(".");
+  if (! dir) return;
 
-  if (! dir.getFilenames(dir_files)) {
-    if (! isSilent())
-      std::cerr << ".: " << dir.getErrorMsg() << std::endl;
-    return false;
+  string filename;
+
+  struct dirent *dirent = readdir(dir);
+
+  while (dirent) {
+    if (dirent->d_name[0] == '.' &&
+         (dirent->d_name[1] == '\0' ||
+          (dirent->d_name[1] == '.' && dirent->d_name[2] == '\0')))
+      goto next;
+
+    dir_files.push_back(dirent->d_name);
+
+ next:
+    dirent = readdir(dir);
   }
 
+  closedir(dir);
+
   if (a_flag) {
-    addDirFiles("." , files);
-    addDirFiles("..", files);
+    add_dir_files("." , files);
+    add_dir_files("..", files);
   }
 
   uint num_dir_files = dir_files.size();
@@ -1161,103 +1027,64 @@ getDirFiles(ClsFile *, FileArray &files)
         continue;
     }
 
-    addDirFiles(dir_files[i], files);
+    add_dir_files(dir_files[i], files);
   }
-
-  return true;
 }
 
 void
 Cls::
-addDirFiles(const std::string &name, FileArray &files)
+add_dir_files(const string &name, vector<ClsFile *> &files)
 {
-  ClsFile *file = new ClsFile(this, L_flag, name, encodeName(name));
+  ClsFile *file = new ClsFile(L_flag, name, encode_name(name));
 
-  ClsFilterType filter = filterFile(file);
+  ClsFilterType filter = filter_file(file);
 
-  // skip filter out file
-  if (filter == ClsFilterType::OUT) {
+  if (filter == FILTER_OUT) {
     delete file;
     return;
   }
 
-  // mark filter out recurse directory
-  if (filter == ClsFilterType::OUT_DIR)
+  if (filter == FILTER_DIR)
     file->setIsOutput(false);
 
-  // add directory file to process
   files.push_back(file);
-}
-
-void
-Cls::
-splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles)
-{
-  for (const auto &file : files) {
-    ClsFilterType filter = filterFile(file);
-
-    // skip filter out file
-    if (filter == ClsFilterType::OUT)
-      continue;
-
-    // mark filter out recurse directory
-    if (filter == ClsFilterType::OUT_DIR)
-      file->setIsOutput(false);
-
-    // add file to process
-    if (f_flag || file->isDir())
-      dfiles.push_back(file);
-    else
-      rfiles.push_back(file);
-  }
-
-  // sort unless -f flag specified
-  if (! f_flag) {
-    sortFiles(dfiles);
-    sortFiles(rfiles);
-  }
 }
 
 ClsFilterType
 Cls::
-filterFile(ClsFile *file)
+filter_file(ClsFile *file)
 {
-  // if filter allows file then keep
-  if (filterData_->checkFile(this, file))
-    return ClsFilterType::IN;
+  if (filter_data_.checkFile(this, file))
+    return FILTER_IN;
 
-  // if filter doesn't not allow file but directory and allow process children
-  if (R_flag && file->isDir())
-    return ClsFilterType::OUT_DIR;
+  if (! (R_flag && file->isDir()))
+    return FILTER_OUT;
 
-  return ClsFilterType::OUT;
+  return FILTER_DIR;
 }
 
-bool
+void
 Cls::
-listDirFiles(FileArray &files)
+list_dir_files(vector<ClsFile *> &files)
 {
   if (show_empty_dirs) {
     if (files.empty()) {
-      if (isHtml()) {
+      if (html)
         output("<a href='" + relative_dir1 + "'>" + relative_dir1 + "</a><br>");
-      }
       else {
-        if (isTypeEscape())
-          outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
+//      if (type_escape)
+//        outputTypeEscape(CFILE_TYPE_INODE_DIR, relative_dir1);
 
-        outputColored(ClsColorType::DIRECTORY, relative_dir1);
+        outputColored(COLOR_DIRECTORY, relative_dir1);
 
         outputLine("");
       }
     }
 
-    return true;
+    return;
   }
 
   //------
-
-  bool rc = true;
 
   if (C_flag || x_flag || m_flag) {
     list_pos     = 0;
@@ -1265,22 +1092,21 @@ listDirFiles(FileArray &files)
   }
 
   if (! f_flag)
-    sortFiles(files);
+    sort_files(files);
 
-  setMaxFilelen(files);
+  set_max_filelen(files);
 
-  if (! outputFiles(files))
-    rc = false;
-
-  return rc;
+  output_files(files);
 }
 
 void
 Cls::
-recurseFiles(FileArray &files)
+recurse_files(vector<ClsFile *> &files)
 {
-  for (const auto &file : files) {
-    const std::string &name = file->getName();
+  uint num_files = files.size();
+
+  for (uint i = 0; i < num_files; ++i) {
+    const string &name = files[i]->getName();
 
     if (name[0] == '.') {
       if (! a_flag && ! A_flag)
@@ -1289,59 +1115,77 @@ recurseFiles(FileArray &files)
       if (name == "." || name == "..")
         continue;
 
-      listDirEntry(file);
+      list_dir_entry(files[i]);
     }
     else
-      listDirEntry(file);
+      list_dir_entry(files[i]);
   }
 }
 
 void
 Cls::
-freeDirFiles(FileArray &files)
+free_dir_files(vector<ClsFile *> &files)
 {
-  for (auto &file : files)
-    delete file;
+  uint num_files = files.size();
+
+  for (uint i = 0; i < num_files; ++i)
+    delete files[i];
 }
 
-bool
+void
 Cls::
-listFile(ClsFile *file)
+list_file(ClsFile *file)
 {
   static char link_name[MAXPATHLEN + 1];
 
-  if (isBadNames() && CFileUtil::isBadFilename(file->getName())) {
-    if (! isQuiet())
-      std::cerr << "Bad filename ";
-
-    std::cerr << "'";
-    std::cerr << (full_path ? current_dir : relative_dir);
-    std::cerr << "/" << file->getName() << "'" << std::endl;
+  if (bad_names && CFileUtil::isBadFilename(file->getName())) {
+    if (! quiet) {
+      if (full_path)
+        cerr << "Bad filename '" << current_dir << "/" <<
+                file->getName() << "'" << endl;
+      else
+        cerr << "Bad filename '" << relative_dir << "/" <<
+                file->getName() << "'" << endl;
+    }
+    else {
+      if (full_path)
+        cout << "'" << current_dir << "/" << file->getName() << "'" << endl;
+      else
+        cout << "'" << relative_dir << "/" << file->getName() << "'" << endl;
+    }
   }
 
   if (! file->exists())
-    return false;
+    return;
 
   ClsData list_data;
 
   list_data.file = file;
 
-  if      (file->isFIFO   ()) list_data.type = 'p';
-  else if (file->isChar   ()) list_data.type = 'c';
-  else if (file->isDir    ()) list_data.type = 'd';
-  else if (file->isBlock  ()) list_data.type = 'b';
-  else if (file->isRegular()) list_data.type = '-';
-  else if (file->isLink   ()) list_data.type = 'l';
-  else if (file->isSocket ()) list_data.type = 's';
-  else                        list_data.type = '?';
+  if      (file->isFIFO   ())
+    list_data.type = 'p';
+  else if (file->isChar   ())
+    list_data.type = 'c';
+  else if (file->isDir    ())
+    list_data.type = 'd';
+  else if (file->isBlock  ())
+    list_data.type = 'b';
+  else if (file->isRegular())
+    list_data.type = '-';
+  else if (file->isLink   ())
+    list_data.type = 'l';
+  else if (file->isSocket ())
+    list_data.type = 's';
+  else
+    list_data.type = '?';
 
   int u_perm = file->getUPerm();
   int g_perm = file->getGPerm();
   int o_perm = file->getOPerm();
 
-  setPerm(list_data.u_perm, u_perm, S_IRUSR);
-  setPerm(list_data.g_perm, g_perm, S_IRGRP);
-  setPerm(list_data.o_perm, o_perm, S_IROTH);
+  set_perm(list_data.u_perm, u_perm, S_IRUSR);
+  set_perm(list_data.g_perm, g_perm, S_IRGRP);
+  set_perm(list_data.o_perm, o_perm, S_IROTH);
 
   list_data.size   = file->getSize();
   list_data.uid    = file->getUid();
@@ -1380,29 +1224,29 @@ listFile(ClsFile *file)
       list_data.name += " ";
   }
 
-  if      (show_bad && isBadFile(file))
-    list_data.color = ClsColorType::BAD_FILE;
+  if      (show_bad && is_bad_file(file))
+    list_data.color = COLOR_BAD_FILE;
   else if (list_data.type == 'd')
-    list_data.color = ClsColorType::DIRECTORY;
+    list_data.color = COLOR_DIRECTORY;
   else if (list_data.type == 'p' || list_data.type == 's')
-    list_data.color = ClsColorType::PIPE;
+    list_data.color = COLOR_PIPE;
   else if (list_data.type == 'l') {
     if (file->hasLinkStat())
-      list_data.color = ClsColorType::LINK;
+      list_data.color = COLOR_LINK;
     else
-      list_data.color = ClsColorType::BAD_FILE;
+      list_data.color = COLOR_BAD_FILE;
   }
   else if (list_data.type == 'b' || list_data.type == 'c')
-    list_data.color = ClsColorType::DEVICE;
+    list_data.color = COLOR_DEVICE;
   else if (file->isUserExecutable())
-    list_data.color = ClsColorType::EXECUTABLE;
+    list_data.color = COLOR_EXECUTABLE;
   else {
     ClsColorType color;
 
-    if (specialGlobMatch(file->getName(), &color))
+    if (special_glob_match(file->getName(), &color))
       list_data.color = color;
     else
-      list_data.color = ClsColorType::NORMAL;
+      list_data.color = COLOR_NORMAL;
   }
 
   if (list_data.type == 'l') {
@@ -1416,29 +1260,27 @@ listFile(ClsFile *file)
     list_data.link_name = link_name;
 
     if      (file->isDir())
-      list_data.link_color = ClsColorType::DIRECTORY;
+      list_data.link_color = COLOR_DIRECTORY;
     else if (file->isFIFO() || file->isSocket())
-      list_data.link_color = ClsColorType::PIPE;
+      list_data.link_color = COLOR_PIPE;
     else if (file->isUserExecutable())
-      list_data.link_color = ClsColorType::EXECUTABLE;
+      list_data.link_color = COLOR_EXECUTABLE;
     else
-      list_data.link_color = ClsColorType::NORMAL;
+      list_data.link_color = COLOR_NORMAL;
   }
   else
     list_data.link_name = "";
 
-  if (! isQuiet())
-    printListData(&list_data);
+  if (! quiet)
+    print_list_data(&list_data);
 
   if (exec_cmd_ != "")
-    execFile(file, exec_cmd_);
-
-  return true;
+    exec_file(file, exec_cmd_);
 }
 
 bool
 Cls::
-isBadFile(ClsFile *file)
+is_bad_file(ClsFile *file)
 {
   int u_perm = file->getUPerm();
   int g_perm = file->getGPerm();
@@ -1456,7 +1298,8 @@ isBadFile(ClsFile *file)
           (g_perm != 7 && g_perm != 5 && g_perm != 0))
         return true;
 
-      if (o_perm > g_perm || (o_perm != 5 && o_perm != 0))
+      if (o_perm > g_perm ||
+          (o_perm != 5 && o_perm != 0))
         return true;
     }
     else if (file->isRegular()) {
@@ -1469,7 +1312,8 @@ isBadFile(ClsFile *file)
            g_perm != 4 && g_perm != 0))
         return true;
 
-      if (o_perm > g_perm || (o_perm != 5 && o_perm != 4 && o_perm != 0))
+      if (o_perm > g_perm ||
+          (o_perm != 5 && o_perm != 4 && o_perm != 0))
         return true;
     }
   }
@@ -1496,27 +1340,20 @@ isBadFile(ClsFile *file)
   return false;
 }
 
-bool
-Cls::
-isBadLink(ClsFile *file)
-{
-  return (file->isLink() && ! file->hasLinkStat());
-}
-
 void
 Cls::
-printListData(ClsData *list_data)
+print_list_data(ClsData *list_data)
 {
-  if (lsFormat_ != "") {
+  if (ls_format != "") {
     uint i = 0;
 
-    std::string output_string;
+    string output_string;
 
-    uint len = lsFormat_.size();
+    uint len = ls_format.size();
 
     while (i < len) {
-      if (lsFormat_[i] != '%' || i >= len - 1) {
-        output_string += lsFormat_[i++];
+      if (ls_format[i] != '%' || i >= len - 1) {
+        output_string += ls_format[i++];
         continue;
       }
 
@@ -1526,104 +1363,87 @@ printListData(ClsData *list_data)
 
       char justify = ' ';
 
-      if (lsFormat_[i] == '-' || lsFormat_[i] == '+')
-        justify = lsFormat_[++i];
+      if (ls_format[i] == '-' || ls_format[i] == '+')
+        justify = ls_format[++i];
 
       int field_width = 0;
 
-      while (i < len && isdigit(lsFormat_[i]))
-        field_width = 10*field_width + (lsFormat_[++i] - '0');
+      while (i < len && isdigit(ls_format[i]))
+        field_width = 10*field_width + (ls_format[++i] - '0');
 
-      std::string str;
-      bool        force = false;
+      string str;
 
-      switch (lsFormat_[i]) {
-        // file blocks
+      switch (ls_format[i]) {
         case 'b': {
           if (field_width == 0)
             field_width = 6;
 
-          str = blocksToString(list_data->blocks);
+          str = blocks_to_string(list_data->blocks);
 
           break;
         }
-        // specified color
         case 'c': {
           ++i;
 
-          // get color number
           int color = 0;
 
-          while (i < len && isdigit(lsFormat_[i]))
-            color = 10*color + (lsFormat_[i++] - '0');
+          while (i < len && isdigit(ls_format[i]))
+            color = 10*color + (ls_format[++i] - '0');
 
-          // get color
-          if (color >= 0 && color <= 6)
-            str = COSTerm::getColorStr(color);
-          else {
-            str   = "";
-            force = true;
-          }
+          str = color_to_string((ClsColorType) color);
 
           --i;
 
           break;
         }
-        // add date
         case 'd': {
           if (field_width == 0)
             field_width = 12;
 
-          // add access date
-          if      (lsFormat_[i + 1] == 'a') {
-            str = timeToString(list_data->atime);
+          if      (ls_format[i + 1] == 'a') {
+            str = time_to_string(list_data->atime);
 
             ++i;
           }
-          // add change date
-          else if (lsFormat_[i + 1] == 'c') {
-            str = timeToString(list_data->ctime);
+          else if (ls_format[i + 1] == 'c') {
+            str = time_to_string(list_data->ctime);
 
             ++i;
           }
-          // add modify date
-          else if (lsFormat_[i + 1] == 'm') {
-            str = timeToString(list_data->mtime);
+          else if (ls_format[i + 1] == 'm') {
+            str = time_to_string(list_data->mtime);
 
             ++i;
           }
-          // add date (use options to pick default type)
           else {
             if      (c_flag)
-              str = timeToString(list_data->ctime);
+              str = time_to_string(list_data->ctime);
             else if (u_flag)
-              str = timeToString(list_data->atime);
+              str = time_to_string(list_data->atime);
             else
-              str = timeToString(list_data->mtime);
+              str = time_to_string(list_data->mtime);
           }
 
           break;
         }
-        // exec command with file
         case 'e': {
-          // get text to next space
-          std::string temp_str1;
+          string temp_str1;
 
-          while (i < len - 1 && ! isspace(lsFormat_[i + 1])) {
-            if (lsFormat_[i + 1] == '\\' && i < len - 2)
+          while (i < len - 1 && ! isspace(ls_format[i + 1])) {
+            if (ls_format[i + 1] == '\\' && i < len - 2)
               ++i;
 
-            temp_str1 += lsFormat_[++i];
+            temp_str1 += ls_format[++i];
           }
 
-          // add filename
-          temp_str1 += ' ' + list_data->name;
+          temp_str1 += ' ';
 
-          str = execToString(temp_str1);
+          temp_str1 += list_data->name;
+
+          str = exec_to_string(temp_str1);
 
           break;
         }
-        // add filename
         case 'f': {
           if (field_width == 0 && max_len > 0)
             field_width = max_len;
@@ -1631,49 +1451,43 @@ printListData(ClsData *list_data)
           if (justify == ' ')
             justify = '-';
 
-          if (isHtml())
+          if (html)
             str = list_data->name;
           else
-            str = colorToString(list_data->color) + list_data->name +
-                  colorToString(ClsColorType::NORMAL);
+            str = color_to_string(list_data->color) + list_data->name +
+                  color_to_string(COLOR_NORMAL);
 
           break;
         }
-        // add gid
         case 'g': {
           if (field_width == 0)
             field_width = 8;
 
-          str = gidToString(list_data->gid);
+          str = gid_to_string(list_data->gid);
 
           break;
         }
-        // add inode number
         case 'i': {
           if (field_width == 0)
             field_width = 8;
 
-          str = inodeToString(list_data->ino);
+          str = inode_to_string(list_data->ino);
 
           break;
         }
-        // add link number
         case 'l': {
           if (list_data->link_name != "") {
-            if (isHtml())
+            if (html)
               str = list_data->link_name;
             else
-              str = colorToString(list_data->link_color) + list_data->link_name +
-                    colorToString(ClsColorType::NORMAL);
+              str = color_to_string(list_data->link_color) + list_data->link_name +
+                    color_to_string(COLOR_NORMAL);
           }
-          else {
-            str   = "";
-            force = true;
-          }
+          else
+            str = "";
 
           break;
         }
-        // add number of links
         case 'n': {
           if (field_width == 0)
             field_width = 4;
@@ -1682,10 +1496,8 @@ printListData(ClsData *list_data)
 
           break;
         }
-        // add permission
         case 'p': {
-          // add user permission
-          if      (lsFormat_[i + 1] == 'u') {
+          if      (ls_format[i + 1] == 'u') {
             if (field_width == 0)
               field_width = 3;
 
@@ -1693,8 +1505,7 @@ printListData(ClsData *list_data)
 
             ++i;
           }
-          // add group permission
-          else if (lsFormat_[i + 1] == 'g') {
+          else if (ls_format[i + 1] == 'g') {
             if (field_width == 0)
               field_width = 3;
 
@@ -1702,8 +1513,7 @@ printListData(ClsData *list_data)
 
             ++i;
           }
-          // add other permission
-          else if (lsFormat_[i + 1] == 'o') {
+          else if (ls_format[i + 1] == 'o') {
             if (field_width == 0)
               field_width = 3;
 
@@ -1711,7 +1521,6 @@ printListData(ClsData *list_data)
 
             ++i;
           }
-          // add all permissions
           else {
             if (field_width == 0)
               field_width = 9;
@@ -1721,34 +1530,30 @@ printListData(ClsData *list_data)
 
           break;
         }
-        // add size
         case 's': {
           if (field_width == 0)
             field_width = 8;
 
-          str = sizeToString(list_data);
+          str = size_to_string(list_data);
 
           break;
         }
-        // add type
         case 't': {
           if (field_width == 0)
             field_width = 1;
 
-          str = typeToString(list_data->type);
+          str = type_to_string(list_data->type);
 
           break;
         }
-        // add uid
         case 'u': {
           if (field_width == 0)
             field_width = 8;
 
-          str = uidToString(list_data->uid);
+          str = uid_to_string(list_data->uid);
 
           break;
         }
-        // add relative directory
         case 'D': {
           if (field_width == 0)
             field_width = 0;
@@ -1757,7 +1562,6 @@ printListData(ClsData *list_data)
 
           break;
         }
-        // add gid
         case 'G': {
           if (field_width == 0)
             field_width = 6;
@@ -1766,18 +1570,14 @@ printListData(ClsData *list_data)
 
           break;
         }
-        // add link indicator
         case 'L': {
           if (list_data->link_name != "")
             str = "->";
-          else {
-            str   = "";
-            force = true;
-          }
+          else
+            str = "";
 
           break;
         }
-        // add uid
         case 'U': {
           if (field_width == 0)
             field_width = 6;
@@ -1792,8 +1592,7 @@ printListData(ClsData *list_data)
 
       ++i;
 
-      // add text to output (justified)
-      if (str != "" || force) {
+      if (str != "") {
         if (field_width > 0) {
           if (justify == '-')
             output_string += CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_RIGHT);
@@ -1805,21 +1604,23 @@ printListData(ClsData *list_data)
       }
       else {
         for (uint k = i1; k < i; k++)
-          output_string += lsFormat_[k];
+          output_string += ls_format[k];
       }
     }
 
-    if (isHtml())
+    if (html)
       outputLine(output_string + "<br>");
     else
       outputLine(output_string);
   }
   else {
-    if (isDataType()) {
-      std::string type = getDataTypeStr(list_data->file);
+#if 0
+    if (datatype) {
+      string type = get_data_type_str(list_data->file);
 
       output(CStrFmt::align(type, 12, CSTR_FMT_ALIGN_LEFT));
     }
+#endif
 
     if       (l_flag) {
       if (i_flag)
@@ -1828,10 +1629,10 @@ printListData(ClsData *list_data)
       if (s_flag)
         CStrUtil::printf("%4ld ", list_data->blocks);
 
-      if (! isDataType()) {
+      if (! datatype) {
         char c = (char) list_data->type;
 
-        output(std::string(&c, 1));
+        output(string(&c, 1));
       }
 
       output(list_data->u_perm);
@@ -1842,10 +1643,10 @@ printListData(ClsData *list_data)
         CStrUtil::printf(" %3d", list_data->nlink);
 
       if (! o_flag)
-        output(" " + CStrFmt::align(uidToString(list_data->uid), 8, CSTR_FMT_ALIGN_LEFT));
+        output(" " + CStrFmt::align(uid_to_string(list_data->uid), 8, CSTR_FMT_ALIGN_LEFT));
 
       if (! g_flag)
-        output(" " + CStrFmt::align(gidToString(list_data->gid), 8, CSTR_FMT_ALIGN_LEFT));
+        output(" " + CStrFmt::align(gid_to_string(list_data->gid), 8, CSTR_FMT_ALIGN_LEFT));
 
       if (list_data->type == 'b' || list_data->type == 'c')
         CStrUtil::printf(" %3d,%3d", major(list_data->rdev), minor(list_data->rdev));
@@ -1884,27 +1685,26 @@ printListData(ClsData *list_data)
       }
 
       if      (c_flag)
-        output(" " + CStrFmt::align(timeToString(list_data->ctime), 12, CSTR_FMT_ALIGN_RIGHT));
+        output(" " + CStrFmt::align(time_to_string(list_data->ctime), 12, CSTR_FMT_ALIGN_RIGHT));
       else if (u_flag)
-        output(" " + CStrFmt::align(timeToString(list_data->atime), 12, CSTR_FMT_ALIGN_RIGHT));
+        output(" " + CStrFmt::align(time_to_string(list_data->atime), 12, CSTR_FMT_ALIGN_RIGHT));
       else
-        output(" " + CStrFmt::align(timeToString(list_data->mtime), 12, CSTR_FMT_ALIGN_RIGHT));
+        output(" " + CStrFmt::align(time_to_string(list_data->mtime), 12, CSTR_FMT_ALIGN_RIGHT));
 
       output(" ");
 
-      std::string name = list_data->name;
+      string name = list_data->name;
 
       uint len = name.size();
 
       if (force_width != 0 && (int) len > force_width)
         name = CStrFmt::align(name, force_width - 1, CSTR_FMT_ALIGN_LEFT, ' ', true) + ">";
 
-      if (isHtml()) {
+      if (html)
         output("<a href='" + relative_dir1 + "/" + name + "'>" + name + "</a>");
-      }
       else {
-        if (isTypeEscape())
-          outputTypeEscape(list_data);
+//      if (type_escape)
+//        outputTypeEscape(list_data);
 
         outputColored(list_data->color, name);
       }
@@ -1912,19 +1712,18 @@ printListData(ClsData *list_data)
       if (show_links && list_data->link_name != "") {
         output(" -> ");
 
-        if (isHtml()) {
+        if (html)
           output("<a href='" + relative_dir1 + "/" + list_data->link_name + "'>" +
                  list_data->link_name + "</a>");
-        }
         else {
-          if (isTypeEscape())
-            outputTypeEscape(list_data, list_data->link_name);
+//        if (type_escape)
+//          outputTypeEscape(list_data, list_data->link_name);
 
           outputColored(list_data->link_color, list_data->link_name);
         }
       }
 
-      if (isHtml())
+      if (html)
         output("<br>");
 
       outputLine("");
@@ -1937,27 +1736,25 @@ printListData(ClsData *list_data)
 
       if (force_width == 0 || (int) len <= force_width) {
         if (full_path) {
-          std::string relative_dir2 =
+          string relative_dir2 =
             relative_dir1 + "/" + list_data->name;
 
-          if (isHtml()) {
+          if (html)
             output("<a href='" + relative_dir2 + "'>" + relative_dir2 + "</a>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, relative_dir2);
           }
         }
         else {
-          if (isHtml()) {
+          if      (html)
             output("<a href='" + relative_dir1 + "/" + list_data->name +
                    "'>" + list_data->name + "</a>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, list_data->name);
           }
@@ -1968,52 +1765,49 @@ printListData(ClsData *list_data)
           uint relative_dir1_len = relative_dir1.size();
 
           if ((int) relative_dir1_len + 1 <= force_width) {
-            std::string relative_dir2 =
+            string relative_dir2 =
               CStrFmt::align(relative_dir1, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-            if (isHtml()) {
+            if (html)
               output("<a href='" + relative_dir1 + "'>" + relative_dir2 + "></a>");
-            }
             else {
-              if (isTypeEscape())
-                outputTypeEscape(list_data);
+//            if (type_escape)
+//              outputTypeEscape(list_data);
 
               outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputColored(COLOR_CLIPPED   , ">");
             }
           }
           else {
-            std::string relative_dir2 = relative_dir1 + "/" +
+            string relative_dir2 = relative_dir1 + "/" +
               CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
                              CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-            if (isHtml()) {
+            if (html)
               output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                      relative_dir2 + "></a>");
-            }
             else {
-              if (isTypeEscape())
-                outputTypeEscape(list_data);
+//            if (type_escape)
+//              outputTypeEscape(list_data);
 
               outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputColored(COLOR_CLIPPED   , ">");
             }
           }
         }
         else {
-          std::string relative_dir2 =
+          string relative_dir2 =
             CStrFmt::align(list_data->name, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-          if (isHtml()) {
+          if (html)
             output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                    relative_dir2 + "></a>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, relative_dir2);
-            outputColored(ClsColorType::CLIPPED   , ">");
+            outputColored(COLOR_CLIPPED   , ">");
           }
         }
       }
@@ -2032,7 +1826,7 @@ printListData(ClsData *list_data)
       list_pos1 += len;
 
       if (list_pos1 >= list_max_pos) {
-        if (isHtml())
+        if (html)
           output("<br>");
 
         outputLine("");
@@ -2044,13 +1838,12 @@ printListData(ClsData *list_data)
       if (list_pos > 0)
         output(", ");
 
-      if (isHtml()) {
+      if (html)
         output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                list_data->name + "</a>");
-      }
       else {
-        if (isTypeEscape())
-          outputTypeEscape(list_data);
+//      if (type_escape)
+//        outputTypeEscape(list_data);
 
         outputColored(list_data->color, list_data->name);
       }
@@ -2062,26 +1855,24 @@ printListData(ClsData *list_data)
 
       if (force_width == 0 || (int) len <= force_width) {
         if (full_path) {
-          std::string relative_dir2 = relative_dir1 + "/" + list_data->name;
+          string relative_dir2 = relative_dir1 + "/" + list_data->name;
 
-          if (isHtml()) {
+          if (html)
             output("<a href='" + relative_dir2 + "'>" + relative_dir2 + "</a><br>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, relative_dir2);
           }
         }
         else {
-          if (isHtml()) {
+          if (html)
             output("<a href='" + relative_dir1 + "/" + list_data->name +
                    "'>" + list_data->name + "</a><br>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, list_data->name);
           }
@@ -2092,53 +1883,50 @@ printListData(ClsData *list_data)
           uint relative_dir1_len = relative_dir1.size();
 
           if ((int) relative_dir1_len + 1 <= force_width) {
-            std::string relative_dir2 =
+            string relative_dir2 =
               CStrFmt::align(relative_dir1, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-            if (isHtml()) {
+            if (html)
               output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                      relative_dir2 + "</a><br>");
-            }
             else {
-              if (isTypeEscape())
-                outputTypeEscape(list_data);
+//            if (type_escape)
+//              outputTypeEscape(list_data);
 
               outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputColored(COLOR_CLIPPED   , ">");
             }
           }
           else {
-            std::string relative_dir2 = relative_dir1 + "/" +
+            string relative_dir2 = relative_dir1 + "/" +
               CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
                              CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-            if (isHtml()) {
+            if (html)
               output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                      relative_dir2 + "</a><br>");
-            }
             else {
-              if (isTypeEscape())
-                outputTypeEscape(list_data);
+//            if (type_escape)
+//              outputTypeEscape(list_data);
 
               outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputColored(COLOR_CLIPPED   , ">");
             }
           }
         }
         else {
-          std::string relative_dir2 =
+          string relative_dir2 =
             CStrFmt::align(list_data->name, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
 
-          if (isHtml()) {
+          if (html)
             output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
                    relative_dir2 + "</a><br>");
-          }
           else {
-            if (isTypeEscape())
-              outputTypeEscape(list_data);
+//          if (type_escape)
+//            outputTypeEscape(list_data);
 
             outputColored(list_data->color, relative_dir2);
-            outputColored(ClsColorType::CLIPPED   , ">");
+            outputColored(COLOR_CLIPPED   , ">");
           }
         }
       }
@@ -2150,7 +1938,7 @@ printListData(ClsData *list_data)
 
 void
 Cls::
-setMaxFilelen(FileArray &files)
+set_max_filelen(vector<ClsFile *> &files)
 {
   uint num_files = files.size();
 
@@ -2189,7 +1977,7 @@ setMaxFilelen(FileArray &files)
 
 void
 Cls::
-setPerm(std::string &str, int perm, int type)
+set_perm(string &str, int perm, int type)
 {
   str = "";
 
@@ -2208,21 +1996,21 @@ setPerm(std::string &str, int perm, int type)
   else
     str += '-';
 
-  if (type == S_IRUSR && COSFile::stat_mode_is_uid_on_exec(perm)) {
+  if (type == S_IRUSR && ((perm & S_ISUID) == S_ISUID)) {
     if (perm & S_IXOTH)
       str[2] = 's';
     else
       str[2] = 'S';
   }
 
-  if (type == S_IRGRP && COSFile::stat_mode_is_gid_on_exec(perm)) {
+  if (type == S_IRGRP && ((perm & S_ISGID) == S_ISGID)) {
     if (perm & S_IXOTH)
       str[2] = 's';
     else
       str[2] = 'S';
   }
 
-  if (type == S_IROTH && COSFile::stat_mode_is_restrict_delete(perm)) {
+  if (type == S_IROTH && ((perm & S_ISVTX) == S_ISVTX)) {
     if (perm & S_IXOTH)
       str[2] = 't';
     else
@@ -2230,18 +2018,18 @@ setPerm(std::string &str, int perm, int type)
   }
 }
 
-std::string
+string
 Cls::
-typeToString(int type)
+type_to_string(int type)
 {
   char c = (char) type;
 
-  return std::string(&c, 1);
+  return string(&c, 1);
 }
 
-std::string
+string
 Cls::
-sizeToString(ClsData *list_data)
+size_to_string(ClsData *list_data)
 {
   static char size_string[64];
 
@@ -2264,9 +2052,9 @@ sizeToString(ClsData *list_data)
   return size_string;
 }
 
-std::string
+string
 Cls::
-uidToString(int uid)
+uid_to_string(int uid)
 {
   if (! n_flag)
     return COSUser::getUserName(uid);
@@ -2274,9 +2062,9 @@ uidToString(int uid)
     return CStrUtil::toString(uid);
 }
 
-std::string
+string
 Cls::
-gidToString(int gid)
+gid_to_string(int gid)
 {
   if (! n_flag)
     return COSUser::getGroupName(gid);
@@ -2284,35 +2072,35 @@ gidToString(int gid)
     return CStrUtil::toString(gid);
 }
 
-std::string
+string
 Cls::
-inodeToString(int inode)
+inode_to_string(int inode)
 {
   return CStrUtil::toString(inode);
 }
 
-std::string
+string
 Cls::
-blocksToString(int inode)
+blocks_to_string(int inode)
 {
   return CStrUtil::toString(inode);
 }
 
-std::string
+string
 Cls::
-timeToString(CTime *time)
+time_to_string(CTime *time)
 {
   return time->getLsTime(show_secs);
 }
 
-std::string
+string
 Cls::
-colorToString(ClsColorType color)
+color_to_string(ClsColorType color)
 {
-  if (! isUseColors())
+  if (! use_colors)
     return "";
 
-  return COSTerm::getColorStr(int(color));
+  return CTerm::getColorStr(color);
 }
 
 int
@@ -2388,36 +2176,36 @@ int
 ClsCompareExtensions::
 operator()(ClsFile *file1, ClsFile *file2)
 {
-  auto pos1 = file1->getName().find('.');
-  auto pos2 = file2->getName().find('.');
+  string::size_type pos1 = file1->getName().find('.');
+  string::size_type pos2 = file2->getName().find('.');
 
-  if (pos1 != std::string::npos) {
+  if (pos1 != string::npos) {
     while (pos1 > 0 && file1->getName()[pos1 - 1] == '.')
       --pos1;
 
     if (pos1 == 0)
-      pos1 = std::string::npos;
+      pos1 = string::npos;
   }
 
-  if (pos2 != std::string::npos) {
+  if (pos2 != string::npos) {
     while (pos2 > 0 && file2->getName()[pos2 - 1] == '.')
       --pos2;
 
     if (pos2 == 0)
-      pos2 = std::string::npos;
+      pos2 = string::npos;
   }
 
   int cmp;
 
-  if      (pos1 != std::string::npos && pos2 != std::string::npos) {
+  if      (pos1 != string::npos && pos2 != string::npos) {
     cmp = CStrUtil::cmp(file1->getName().substr(pos1 + 1), file2->getName().substr(pos2 + 1));
 
     if (cmp == 0)
       cmp = CStrUtil::cmp(file1->getName(), file2->getName());
   }
-  else if (pos1 != std::string::npos)
+  else if (pos1 != string::npos)
     cmp =  1;
-  else if (pos2 != std::string::npos)
+  else if (pos2 != string::npos)
     cmp = -1;
   else
     cmp = CStrUtil::cmp(file1->getName(), file2->getName());
@@ -2427,68 +2215,57 @@ operator()(ClsFile *file1, ClsFile *file2)
 
 void
 Cls::
-sortFiles(FileArray &files)
+split_files(const vector<ClsFile *> &files, vector<ClsFile *> &dfiles, vector<ClsFile *> &rfiles)
 {
-  if      (sort_type == ClsSortType::NAME)
+  uint num_files = files.size();
+
+  for (uint i = 0; i < num_files; ++i) {
+    ClsFilterType filter = filter_file(files[i]);
+
+    if (filter == FILTER_OUT)
+      continue;
+
+    if (filter == FILTER_DIR)
+      files[i]->setIsOutput(false);
+
+    if (f_flag || files[i]->isDir())
+      dfiles.push_back(files[i]);
+    else
+      rfiles.push_back(files[i]);
+  }
+
+  if (! f_flag) {
+    sort_files(dfiles);
+    sort_files(rfiles);
+  }
+}
+
+void
+Cls::
+sort_files(vector<ClsFile *> &files)
+{
+  if      (sort_type == SORT_NAME)
     std::sort(files.begin(), files.end(), ClsCompareNames(nocase, r_flag));
-  else if (sort_type == ClsSortType::TIME)
+  else if (sort_type == SORT_TIME)
     std::sort(files.begin(), files.end(), ClsCompareTimes(c_flag, u_flag, m_flag, r_flag));
-  else if (sort_type == ClsSortType::SIZE)
+  else if (sort_type == SORT_SIZE)
     std::sort(files.begin(), files.end(), ClsCompareSizes(r_flag));
-  else if (sort_type == ClsSortType::EXTENSION)
+  else if (sort_type == SORT_EXTENSION)
     std::sort(files.begin(), files.end(), ClsCompareExtensions());
 }
 
-bool
+void
 Cls::
-outputFiles(FileArray &files)
+output_files(vector<ClsFile *> &files)
 {
-  if (isTest()) {
-    if (files.empty())
-      return true;
-
-    setSilent(true);
-
-    FileSet fileSet;
-
-    (void) testFiles(files, fileSet);
-
-    if (testNames_) {
-      if (! fileSet.empty()) {
-        bool output = false;
-
-        for (const auto &file : fileSet) {
-          if (output)
-            std::cout << " ";
-
-          std::cout << file->getName();
-
-          output = true;
-        }
-
-        std::cout << std::endl;
-      }
-    }
-    else {
-      std::cout << fileSet.size() << std::endl;
-    }
-
-    return true;
-  }
-
-  //---
-
-  bool rc = true;
-
   if       (C_flag) {
-    FileArray files1;
+    vector<ClsFile *> files1;
 
     uint num_files = files.size();
 
-    for (uint i = 0; i < num_files; ++i) {
+    for (uint i = 0; i < num_files; ++i)
       if (files[i]->getIsOutput())
         files1.push_back(files[i]);
-    }
 
     int columns = (list_max_pos + 1)/(max_len + 1);
 
@@ -2510,18 +2287,17 @@ outputFiles(FileArray &files)
           break;
 
         if (j > 0) {
-          if (! isQuiet())
+          if (! quiet)
             output(" ");
         }
 
-        if (! listFile(files1[k]))
-          rc = false;
+        list_file(files1[k]);
 
         k += rows;
       }
 
-      if (! isQuiet()) {
-        if (isHtml())
+      if (! quiet) {
+        if (html)
           output("<br>");
 
         outputLine("");
@@ -2549,18 +2325,17 @@ outputFiles(FileArray &files)
         continue;
 
       if (j > 0) {
-        if (! isQuiet())
+        if (! quiet)
           output(" ");
       }
 
-      if (! listFile(files[i]))
-        rc = false;
+      list_file(files[i]);
 
       ++j;
 
       if (j == columns) {
-        if (! isQuiet()) {
-          if (isHtml())
+        if (! quiet) {
+          if (html)
             output("<br>");
 
           outputLine("");
@@ -2571,8 +2346,8 @@ outputFiles(FileArray &files)
     }
 
     if (j > 0) {
-      if (! isQuiet()) {
-        if (isHtml())
+      if (! quiet) {
+        if (html)
           output("<br>");
 
         outputLine("");
@@ -2583,33 +2358,29 @@ outputFiles(FileArray &files)
     uint num_files = files.size();
 
     for (uint i = 0; i < num_files; ++i) {
-      if (! files[i]->getIsOutput())
-        continue;
+      if (! files[i]->getIsOutput()) continue;
 
       for (int j = 0; j < dir_depth - 1; ++j)
         output(" ");
 
       output("|- ");
 
-      if (! listFile(files[i]))
-        rc = false;
+      list_file(files[i]);
     }
   }
   else {
     uint num_files = files.size();
 
     for (uint i = 0; i < num_files; ++i) {
-      if (! files[i]->getIsOutput())
-        continue;
+      if (! files[i]->getIsOutput()) continue;
 
-      if (! listFile(files[i]))
-        rc = false;
+      list_file(files[i]);
     }
   }
 
   if (m_flag && list_pos > 0) {
-    if (! isQuiet()) {
-      if (isHtml())
+    if (! quiet) {
+      if (html)
         output("<br>");
 
       outputLine("");
@@ -2617,17 +2388,15 @@ outputFiles(FileArray &files)
 
     list_pos = 0;
   }
-
-  return rc;
 }
 
-std::string
+string
 Cls::
-encodeName(const std::string &name)
+encode_name(const string &name)
 {
   uint len = name.size();
 
-  std::string name1;
+  string name1;
 
   uint i = 0;
 
@@ -2675,26 +2444,47 @@ encodeName(const std::string &name)
 
 ClsFileType
 Cls::
-decodeTypeChar(const std::string &opt, int c)
+decode_type_char(const string &opt, int c)
 {
-  ClsFileType type = ClsFileType::NONE;
+  ClsFileType type = FILE_TYPE_NONE;
 
   switch (c) {
-    case 'p': type = ClsFileType::FIFO;    break;
-    case 'c': type = ClsFileType::CHR;     break;
-    case 'd': type = ClsFileType::DIR;     break;
-    case 'b': type = ClsFileType::BLK;     break;
-    case 'f': type = ClsFileType::REG;     break;
-    case 'l': type = ClsFileType::LNK;     break;
-    case 's': type = ClsFileType::SOCK;    break;
-    case 'x': type = ClsFileType::EXEC;    break;
-    case 'X': type = ClsFileType::ELF;     break;
-    case 'B': type = ClsFileType::BAD;     break;
-    case 'S': type = ClsFileType::SPECIAL; break;
-    default: {
-      std::cerr << "Invalid --" << opt << " type " << (char) c << std::endl;
+    case 'p':
+      type = FILE_TYPE_FIFO;
       break;
-    }
+    case 'c':
+      type = FILE_TYPE_CHR;
+      break;
+    case 'd':
+      type = FILE_TYPE_DIR;
+      break;
+    case 'b':
+      type = FILE_TYPE_BLK;
+      break;
+    case 'f':
+      type = FILE_TYPE_REG;
+      break;
+    case 'l':
+      type = FILE_TYPE_LNK;
+      break;
+    case 's':
+      type = FILE_TYPE_SOCK;
+      break;
+    case 'x':
+      type = FILE_TYPE_EXEC;
+      break;
+    case 'X':
+      type = FILE_TYPE_ELF;
+      break;
+    case 'B':
+      type = FILE_TYPE_BAD;
+      break;
+    case 'S':
+      type = FILE_TYPE_SPECIAL;
+      break;
+    default:
+      cerr << "Invalid --" << opt << " type " << (char) c << endl;
+      break;
   }
 
   return type;
@@ -2702,11 +2492,10 @@ decodeTypeChar(const std::string &opt, int c)
 
 bool
 Cls::
-enterDir(const std::string &dir)
+enter_dir(const string &dir)
 {
   if (! CDir::enter(dir)) {
-    if (! isSilent())
-      std::cerr << CDir::getErrorMsg() << std::endl;
+    cerr << CDir::getErrorMsg() << endl;
     return false;
   }
 
@@ -2741,11 +2530,10 @@ enterDir(const std::string &dir)
 
 void
 Cls::
-leaveDir()
+leave_dir()
 {
   if (! CDir::leave()) {
-    if (! isSilent())
-      std::cerr << CDir::getErrorMsg() << std::endl;
+    cerr << CDir::getErrorMsg() << endl;
     return;
   }
 
@@ -2754,45 +2542,41 @@ leaveDir()
   current_dir = CDir::getCurrent();
 }
 
-std::string
+string
 Cls::
-execToString(const std::string &command)
+exec_to_string(const string &command)
 {
-  if (isPreview())
-    return command;
+  static string exec_string;
 
-  //---
+  exec_string = "";
 
-  static std::string exec_string;
+  FILE *fp = popen(command.c_str(), "r");
+  if (! fp) return "";
 
-  if (! COSProcess::executeCommand(command, exec_string, 0))
-    return 0;
+  int c;
 
-  int len = exec_string.size();
+  while ((c = fgetc(fp)) != EOF)
+    exec_string += c;
 
-  for (int i = 0; i < len; ++i) {
+  (void) pclose(fp);
+
+  uint len = exec_string.size();
+
+  for (uint i = 0; i < len; ++i)
     if (exec_string[i] == '\n')
-      exec_string[i] = ' ';
-  }
+      exec_string = ' ';
 
-  // skip to first non-space
-  int i = 0;
-
-  while (i < len && isspace(exec_string[i]))
-    ++i;
-
-  // skip trailing space
   while (len > 0 && isspace(exec_string[len - 1]))
-    --len;
+    len--;
 
-  exec_string = exec_string.substr(i, len - i);
+  exec_string = exec_string.substr(0, len);
 
   return exec_string;
 }
 
 bool
 Cls::
-specialGlobMatch(const std::string &file, ClsColorType *color)
+special_glob_match(const string &file, ClsColorType *color)
 {
   for (uint i = 0; i <= 6; ++i) {
     uint num_special_globs = special_globs[i].size();
@@ -2809,17 +2593,16 @@ specialGlobMatch(const std::string &file, ClsColorType *color)
 
 int
 Cls::
-execFile(ClsFile *file, const std::string &exec_cmd)
+exec_file(ClsFile *file, const string &exec_cmd)
 {
-  std::string exec_cmd1;
+  string exec_cmd1;
 
   uint exec_cmd_len = exec_cmd.size();
 
-  // replace format characters with file data
-  auto pos1 = 0;
-  auto pos2 = exec_cmd.find('%');
+  string::size_type pos1 = 0;
+  string::size_type pos2 = exec_cmd.find('%');
 
-  while (pos2 != std::string::npos) {
+  while (pos2 != string::npos) {
     exec_cmd1 += exec_cmd.substr(pos1, pos2 - pos1);
 
     ++pos2;
@@ -2827,38 +2610,26 @@ execFile(ClsFile *file, const std::string &exec_cmd)
     char code = exec_cmd[pos2];
 
     switch (code) {
-      // add directory
-      case 'd': {
+      case 'd':
         exec_cmd1 += current_dir;
         break;
-      }
-      // add filename
-      case 'f': {
+      case 'f':
         exec_cmd1 += file->getName();
         break;
-      }
-      // add link name
-      case 'l': {
+      case 'l':
         exec_cmd1 += file->getLinkName();
         break;
-      }
-      // add full path
-      case 'p': {
+      case 'p':
         exec_cmd1 += current_dir;
         exec_cmd1 += "/";
         exec_cmd1 += file->getName();
         break;
-      }
-      // add % char
-      case '%': {
+      case '%':
         exec_cmd1 += "%";
         break;
-      }
-      // handle bad format
-      default: {
-        std::cerr << "Bad exec % code" << std::endl;
+      default:
+        cerr << "Bad exec % code" << endl;
         break;
-      }
     }
 
     if (pos2 < exec_cmd_len)
@@ -2870,86 +2641,44 @@ execFile(ClsFile *file, const std::string &exec_cmd)
 
   exec_cmd1 += exec_cmd.substr(pos1);
 
-  ///---
-
   int len1 = exec_cmd1.size();
 
-  // echo shortcut
   if      (len1 > 5 && exec_cmd1.substr(0, 5) == "echo ") {
-    // skip echo and space after
     int i = 5;
 
     while (i < len1 && isspace(exec_cmd1[i]))
       ++i;
 
-    std::string args = exec_cmd1.substr(i);
-
-    if (isPreview())
-      std::cout << "echo " << args << std::endl;
-    else
-      std::cout << args << std::endl;
+    std::cout << exec_cmd1.substr(i) << endl;
 
     return true;
   }
-  // rm shortcut
   else if (len1 > 3 && exec_cmd1.substr(0, 3) == "rm ") {
-    // skip rm and space after
     int i = 3;
 
     while (i < len1 && isspace(exec_cmd1[i]))
       ++i;
 
-    std::string args = exec_cmd1.substr(i);
+    int rc = unlink(exec_cmd1.substr(i).c_str());
 
-    if (isPreview()) {
-      std::cout << "rm " << args << std::endl;
+    if (rc == 0) {
+      std::cout << "rm " << exec_cmd1.substr(i) << std::endl;
+      return true;
     }
-    else {
-      int rc = unlink(args.c_str());
-
-      if (rc != 0) {
-        std::cerr << "rm failed for " << args << std::endl;
-        return false;
-      }
-    }
-
-    return true;
+    else
+      return false;
   }
-  // run generic command
   else {
-    int status;
-
-    if (! runCommand(exec_cmd1, status))
+    if (::system(exec_cmd1.c_str()) < 0) {
+      cerr << "exec failed for " << exec_cmd1 << endl;
       return 1;
+    }
 
-    return status;
+    return 0;
   }
 }
 
-bool
-Cls::
-runCommand(const std::string &cmd, int &status)
-{
-  if (isPreview()) {
-    std::cout << cmd << std::endl;
-    return true;
-  }
-
-  status = 0;
-
-  COSProcess::CommandState state;
-
-  if (! COSProcess::executeCommand(cmd.c_str(), &state)) {
-    if (! isSilent())
-      std::cerr << "exec failed for " << cmd << std::endl;
-    return false;
-  }
-
-  status = state.getStatus();
-
-  return true;
-}
-
+#if 0
 void
 Cls::
 outputTypeEscape(ClsData *list_data)
@@ -2959,80 +2688,343 @@ outputTypeEscape(ClsData *list_data)
 
 void
 Cls::
-outputTypeEscape(ClsData *list_data, const std::string &str)
+outputTypeEscape(ClsData *list_data, const string &str)
 {
-  CFileType type = getDataType(list_data->file);
+  CFileType type = get_data_type(list_data->file);
 
   outputTypeEscape(type, str);
 }
 
 void
 Cls::
-outputTypeEscape(CFileType type, const std::string &str)
+outputTypeEscape(CFileType type, const string &str)
 {
-  std::string type_str = CFileUtil::getTypeStr(type);
+  string type_str = CFileUtil::getTypeStr(type);
 
-  if (type_str != "??") {
-#ifdef CTERM_SUPPORT
+  if (type_str != "??")
     output(CEscape::APC("<link type=\"" + type_str + "\"" + " dir=\"" + current_dir + "\"" +
                         " name=\"" + str + "\"/>"));
-#else
-    output(str);
-#endif
-  }
 }
+#endif
 
+#if 0
 CFileType
 Cls::
-getDataType(ClsFile *file)
+get_data_type(ClsFile *file)
 {
-  if      (file->isFIFO   ()) return CFILE_TYPE_INODE_FIFO;
-  else if (file->isChar   ()) return CFILE_TYPE_INODE_CHR;
-  else if (file->isDir    ()) return CFILE_TYPE_INODE_DIR;
-  else if (file->isBlock  ()) return CFILE_TYPE_INODE_BLK;
-  else if (file->isLink   ()) return CFILE_TYPE_INODE_LNK;
-  else if (file->isSocket ()) return CFILE_TYPE_INODE_SOCK;
+  if      (file->isFIFO   ())
+    return CFILE_TYPE_INODE_FIFO;
+  else if (file->isChar   ())
+    return CFILE_TYPE_INODE_CHR;
+  else if (file->isDir    ())
+    return CFILE_TYPE_INODE_DIR;
+  else if (file->isBlock  ())
+    return CFILE_TYPE_INODE_BLK;
+  else if (file->isLink   ())
+    return CFILE_TYPE_INODE_LNK;
+  else if (file->isSocket ())
+    return CFILE_TYPE_INODE_SOCK;
 
-  CFile cfile(file->getName());
-
-  CFileType type = CFileUtil::getType(&cfile);
+  CFileType type = CFileUtil::getType(file->getName());
 
   return type;
 }
+#endif
 
-std::string
+#if 0
+string
 Cls::
-getDataTypeStr(ClsFile *file)
+get_data_type_str(ClsFile *file)
 {
-  CFileType type = getDataType(file);
+  CFileType type = get_data_type(file);
 
-  std::string type_str = CFileUtil::getTypeStr(type);
+  string type_str = CFileUtil::getTypeStr(type);
 
   return type_str + ']';
 }
+#endif
 
 void
 Cls::
-outputColored(ClsColorType color, const std::string &str)
+outputColored(ClsColorType color, const string &str)
 {
-  if (isUseColors())
-    output(colorToString(color) + str + colorToString(ClsColorType::NORMAL));
+  if (use_colors)
+    output(color_to_string(color) + str + color_to_string(COLOR_NORMAL));
   else
     output(str);
 }
 
 void
 Cls::
-outputLine(const std::string &str)
+outputLine(const string &str)
 {
-  if (! isQuiet())
-    std::cout << str << std::endl;
+  if (! quiet)
+    cout << str << endl;
 }
 
 void
 Cls::
-output(const std::string &str)
+output(const string &str)
 {
-  if (! isQuiet())
-    std::cout << str;
+  if (! quiet)
+    cout << str;
+}
+
+//------------
+
+ClsFilterData::
+ClsFilterData() :
+ filtered_(false), includeFlags_(0), excludeFlags_(0), show_zero_(true), show_non_zero_(true),
+ only_user_(false), newer_(-1), older_(-1), larger_(-1), smaller_(-1)
+{
+}
+
+#if 0
+void
+ClsFilterData::
+addIncludeFileType(const string &fileType)
+{
+  includeFileTypes_.push_back(new CGlob(fileType));
+
+  filtered_ = true;
+}
+#endif
+
+#if 0
+void
+ClsFilterData::
+addExcludeFileType(const string &fileType)
+{
+  excludeFileTypes_.push_back(new CGlob(fileType));
+
+  filtered_ = true;
+}
+#endif
+
+void
+ClsFilterData::
+addMatch(const string &pattern)
+{
+  match_patterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
+void
+ClsFilterData::
+addNoMatch(const string &pattern)
+{
+  nomatch_patterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
+bool
+ClsFilterData::
+checkFile(Cls *cls, ClsFile *file) const
+{
+  if (! filtered_)
+    return true;
+
+  //-----
+
+  if (! show_zero_ || ! show_non_zero_) {
+    size_t size = file->getSize();
+
+    if ((size == 0 && ! show_zero_) ||
+        (size != 0 && ! show_non_zero_))
+      return false;
+  }
+
+  //-----
+
+  if (only_user_) {
+    if (file->getUid() != cls->getUserUid())
+      return false;
+  }
+
+  //-----
+
+  // if not included fail
+  if (! checkIncludeFile(cls, file))
+    return false;
+
+  //-----
+
+  // if excluded fail
+  if (  checkExcludeFile(cls, file))
+    return false;
+
+  //-----
+
+  // if any match patterns it must match one
+  uint num_match_patterns = match_patterns_.size();
+
+  if (num_match_patterns > 0) {
+    bool rc = false;
+
+    for (uint i = 0; i < num_match_patterns; ++i) {
+      if (match_patterns_[i]->compare(file->getName())) {
+        rc = true;
+        break;
+      }
+    }
+
+    if (! rc)
+      return false;
+  }
+
+  //-----
+
+  // if any no-match patterns then fail if matches any
+  uint num_nomatch_patterns = nomatch_patterns_.size();
+
+  for (uint i = 0; i < num_nomatch_patterns; ++i) {
+    if (nomatch_patterns_[i]->compare(file->getName()))
+      return false;
+  }
+
+  //-----
+
+  // if newer specified then fail if older
+  if (newer_ >= 0) {
+    long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
+
+    if (diff > newer_*SECONDS_PER_DAY)
+      return false;
+  }
+
+  //-----
+
+  // if older specified then fail if newer
+  if (older_ >= 0) {
+    long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
+
+    if (diff < older_*SECONDS_PER_DAY)
+      return false;
+  }
+
+  //-----
+
+  // if larger specified then fail if smaller
+  if (larger_ >= 0) {
+    if (file->getSize() < (uint) larger_)
+      return false;
+  }
+
+  //-----
+
+  // if smaller specified then fail if larger
+  if (smaller_ >= 0) {
+    if (file->getSize() > (uint) smaller_)
+      return false;
+  }
+
+  //-----
+
+  // run filter script/command
+  if (exec_ != "") {
+    int rc = cls->exec_file(file, exec_);
+
+    if (rc)
+      return false;
+  }
+
+  return true;
+}
+
+bool
+ClsFilterData::
+checkIncludeFile(Cls *cls, ClsFile *file) const
+{
+  if (includeFlags_ == 0 && includeFileTypes_.empty())
+    return true;
+
+  if ((file->isFIFO   () && (includeFlags_ & FILE_TYPE_FIFO)) ||
+      (file->isChar   () && (includeFlags_ & FILE_TYPE_CHR )) ||
+      (file->isDir    () && (includeFlags_ & FILE_TYPE_DIR )) ||
+      (file->isBlock  () && (includeFlags_ & FILE_TYPE_BLK )) ||
+      (file->isRegular() && (includeFlags_ & FILE_TYPE_REG )) ||
+      (file->isLink   () && (includeFlags_ & FILE_TYPE_LNK )) ||
+      (file->isSocket () && (includeFlags_ & FILE_TYPE_SOCK)))
+    return true;
+
+  if ((includeFlags_ & FILE_TYPE_EXEC) && file->isUserExecutable())
+    return true;
+
+  if ((includeFlags_ & FILE_TYPE_ELF) && file->isElf())
+    return true;
+
+  if ((includeFlags_ & FILE_TYPE_BAD) &&
+      (cls->is_bad_file(file) || ! file->hasLinkStat()))
+    return true;
+
+  ClsColorType color;
+
+  if ((includeFlags_ & FILE_TYPE_SPECIAL) &&
+      cls->special_glob_match(file->getName(), &color))
+    return true;
+
+#if 0
+  CFileType type = cls->get_data_type(file);
+
+  string typeStr = CFileUtil::getTypeStr(type);
+
+  PatternList::const_iterator p1 = includeFileTypes_.begin();
+  PatternList::const_iterator p2 = includeFileTypes_.end  ();
+
+  for ( ; p1 != p2; ++p1)
+    if ((*p1)->compare(typeStr))
+      return true;
+#endif
+
+  return false;
+}
+
+bool
+ClsFilterData::
+checkExcludeFile(Cls *cls, ClsFile *file) const
+{
+  if (excludeFlags_ == 0 && excludeFileTypes_.empty())
+    return false;
+
+  if ((file->isFIFO   () && (excludeFlags_ & FILE_TYPE_FIFO)) ||
+      (file->isChar   () && (excludeFlags_ & FILE_TYPE_CHR )) ||
+      (file->isDir    () && (excludeFlags_ & FILE_TYPE_DIR )) ||
+      (file->isBlock  () && (excludeFlags_ & FILE_TYPE_BLK )) ||
+      (file->isRegular() && (excludeFlags_ & FILE_TYPE_REG )) ||
+      (file->isLink   () && (excludeFlags_ & FILE_TYPE_LNK )) ||
+      (file->isSocket () && (excludeFlags_ & FILE_TYPE_SOCK)))
+    return true;
+
+  if ((excludeFlags_ & FILE_TYPE_EXEC) && file->isUserExecutable())
+    return true;
+
+  if ((excludeFlags_ & FILE_TYPE_ELF) && file->isElf())
+    return true;
+
+  if ((excludeFlags_ & FILE_TYPE_BAD) &&
+      (cls->is_bad_file(file) || ! file->hasLinkStat()))
+    return true;
+
+  ClsColorType color;
+
+  if ((excludeFlags_ & FILE_TYPE_SPECIAL) &&
+      cls->special_glob_match(file->getName(), &color))
+    return true;
+
+#if 0
+  CFileType type = cls->get_data_type(file);
+
+  string typeStr = CFileUtil::getTypeStr(type);
+
+  PatternList::const_iterator p1 = excludeFileTypes_.begin();
+  PatternList::const_iterator p2 = excludeFileTypes_.end  ();
+
+  for ( ; p1 != p2; ++p1)
+    if ((*p1)->compare(typeStr))
+      return true;
+#endif
+
+  return false;
 }

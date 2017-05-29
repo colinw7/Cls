@@ -4,13 +4,13 @@
 #include <string>
 #include <sys/types.h>
 
+class Cls;
 class CTime;
 
 class ClsFile {
  public:
-  ClsFile(bool use_link, const std::string &name, const std::string &lname = "") :
-   initialized_(false), use_link_(use_link), name_(name), lname_(lname),
-   stat_(NULL), f_stat_(NULL), l_stat_(NULL), output_(true) {
+  ClsFile(Cls *ls, bool useLink, const std::string &name, const std::string &lname = "") :
+   ls_(ls), useLink_(useLink), name_(name), lname_(lname) {
   }
 
   const std::string &getName() const { return name_; }
@@ -58,21 +58,22 @@ class ClsFile {
 
  private:
   bool init();
-  bool get_fstat();
-  bool get_lstat();
+  bool getFStat();
+  bool getLStat();
 
  private:
-  bool         initialized_;
-  bool         use_link_;
+  Cls*         ls_          { nullptr };
+  bool         initialized_ { false };
+  bool         useLink_     { false };
   std::string  name_;
   std::string  lname_;
-  struct stat *stat_;
-  struct stat *f_stat_;
-  struct stat *l_stat_;
-  CTime       *ctime_;
-  CTime       *mtime_;
-  CTime       *atime_;
-  bool         output_;
+  struct stat *stat_        { nullptr };
+  struct stat *fstat_       { nullptr };
+  struct stat *lstat_       { nullptr };
+  CTime       *ctime_       { nullptr };
+  CTime       *mtime_       { nullptr };
+  CTime       *atime_       { nullptr };
+  bool         output_      { true };
 };
 
 #endif

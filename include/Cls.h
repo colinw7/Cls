@@ -1,165 +1,92 @@
 #ifndef CLS_H
 #define CLS_H
 
+class ClsFilterData;
 class CTime;
 class CGlob;
 class Cls;
 
-#include <string>
-#include <vector>
+#include <CFile.h>
+#include <set>
 
-#include <CFileType.h>
-
-enum ClsFileType {
-  FILE_TYPE_NONE    = 0,
-  FILE_TYPE_FIFO    = (1<<0),
-  FILE_TYPE_CHR     = (1<<1),
-  FILE_TYPE_DIR     = (1<<2),
-  FILE_TYPE_BLK     = (1<<3),
-  FILE_TYPE_REG     = (1<<4),
-  FILE_TYPE_LNK     = (1<<5),
-  FILE_TYPE_SOCK    = (1<<6),
-  FILE_TYPE_EXEC    = (1<<7),
-  FILE_TYPE_BAD     = (1<<8),
-  FILE_TYPE_SPECIAL = (1<<9),
-  FILE_TYPE_ELF     = (1<<10)
+enum class ClsFileType {
+  NONE    = 0,
+  FIFO    = (1<<0),
+  CHR     = (1<<1),
+  DIR     = (1<<2),
+  BLK     = (1<<3),
+  REG     = (1<<4),
+  LNK     = (1<<5),
+  SOCK    = (1<<6),
+  EXEC    = (1<<7),
+  BAD     = (1<<8),
+  SPECIAL = (1<<9),
+  ELF     = (1<<10),
+  EXISTS  = (1<<11)
 };
 
-enum ClsFilterType {
-  FILTER_OUT = 0,
-  FILTER_IN  = 1,
-  FILTER_DIR = 2
+enum class ClsFilterType {
+  IN      = 0,
+  OUT     = 1,
+  OUT_DIR = 2
 };
 
-enum ClsSortType {
-  SORT_NONE      = 0,
-  SORT_NAME      = 1,
-  SORT_TIME      = 2,
-  SORT_SIZE      = 3,
-  SORT_EXTENSION = 4
+enum class ClsSortType {
+  NONE      = 0,
+  NAME      = 1,
+  TIME      = 2,
+  SIZE      = 3,
+  EXTENSION = 4
 };
 
-enum ClsColorType {
-  COLOR_NORMAL     = 0,
-  COLOR_DIRECTORY  = 3,
-  COLOR_EXECUTABLE = 1,
-  COLOR_LINK       = 6,
-  COLOR_DEVICE     = 6,
-  COLOR_PIPE       = 5,
-  COLOR_SPECIAL    = 2,
-  COLOR_BAD_FILE   = 4,
-  COLOR_CLIPPED    = 3
+enum class ClsColorType {
+  NORMAL     = 0,
+  DIRECTORY  = 3,
+  EXECUTABLE = 1,
+  LINK       = 6,
+  DEVICE     = 6,
+  PIPE       = 5,
+  SPECIAL    = 2,
+  BAD_FILE   = 4,
+  CLIPPED    = 3
 };
+
+//------
 
 #include <ClsFile.h>
 
+//------
+
 struct ClsData {
-  ClsFile      *file;
-  int           type;
+  ClsFile      *file { nullptr };
+  int           type { 0 };
   std::string   u_perm;
   std::string   g_perm;
   std::string   o_perm;
-  size_t        size;
-  uint          uid;
-  uint          gid;
-  ulong         ino;
-  int           nlink;
-  int           dev;
-  int           rdev;
-  ulong         blocks;
-  CTime        *ctime;
-  CTime        *mtime;
-  CTime        *atime;
+  size_t        size { 0 };
+  uint          uid { 0 };
+  uint          gid { 0 };
+  ulong         ino { 0 };
+  int           nlink { 0 };
+  int           dev { 0 };
+  int           rdev { 0 };
+  ulong         blocks { 0 };
+  CTime        *ctime { nullptr };
+  CTime        *mtime { nullptr };
+  CTime        *atime { nullptr };
   std::string   name;
   ClsColorType  color;
   std::string   link_name;
   ClsColorType  link_color;
 };
 
-class ClsFilterData {
- private:
-  typedef std::vector<CGlob *> PatternList;
-
-  bool filtered_;
-
-  uint        includeFlags_;
-  PatternList includeFileTypes_;
-  uint        excludeFlags_;
-  PatternList excludeFileTypes_;
-  PatternList match_patterns_;
-  PatternList nomatch_patterns_;
-
-  bool show_zero_;
-  bool show_non_zero_;
-
-  bool only_user_;
-
-  int newer_;
-  int older_;
-  int larger_;
-  int smaller_;
-
-  std::string exec_;
-
- public:
-  ClsFilterData();
-
-  void addIncludeType(int type) {
-    includeFlags_ |= type;
-
-    filtered_ = true;
-  }
-
-  //void addIncludeFileType(const std::string &fileType);
-
-  void addExcludeType(int type) {
-    excludeFlags_ |= type;
-
-    filtered_ = true;
-  }
-
-  //void addExcludeFileType(const std::string &fileType);
-
-  void addMatch(const std::string &pattern);
-  void addNoMatch(const std::string &pattern);
-
-  void setShowZero(bool show) {
-    show_zero_ = show;
-
-    if (! show_zero_) show_non_zero_ = true;
-
-    filtered_ = true;
-  }
-
-  void setShowNonZero(bool show) {
-    show_non_zero_ = show;
-
-    if (! show_non_zero_) show_zero_ = true;
-
-    filtered_ = true;
-  }
-
-  void setOnlyUser(bool only_user) {
-    only_user_ = only_user;
-
-    filtered_ = true;
-  }
-
-  void setNewer  (int newer  ) { newer_   = newer  ; filtered_ = true; }
-  void setOlder  (int older  ) { older_   = older  ; filtered_ = true; }
-  void setLarger (int larger ) { larger_  = larger ; filtered_ = true; }
-  void setSmaller(int smaller) { smaller_ = smaller; filtered_ = true; }
-
-  void setExec(const std::string &exec) { exec_ = exec; filtered_ = true; }
-
-  bool checkFile(Cls *cls, ClsFile *file) const;
-
- private:
-  bool checkIncludeFile(Cls *cls, ClsFile *file) const;
-  bool checkExcludeFile(Cls *cls, ClsFile *file) const;
-};
+//------
 
 class Cls {
+ public:
+  typedef std::vector<ClsFile *> FileArray;
+  typedef std::set<ClsFile *>    FileSet;
+
  public:
   Cls();
  ~Cls();
@@ -168,140 +95,177 @@ class Cls {
 
   uint getUserUid() const { return user_uid_; }
 
-  void           init();
-  void           process_args(int argc, char **argv);
-  void           exec();
-  void           list_dir_entry(ClsFile *file);
-  void           list_dir(ClsFile *file);
-  void           get_dir_files(ClsFile *file, std::vector<ClsFile *> &files);
-  void           add_dir_files(const std::string &name, std::vector<ClsFile *> &files);
-  ClsFilterType  filter_file(ClsFile *file);
-  void           list_dir_files(std::vector<ClsFile *> &files);
-  void           recurse_files(std::vector<ClsFile *> &files);
-  void           free_dir_files(std::vector<ClsFile *> &files);
-  void           list_file(ClsFile *file);
-  bool           is_bad_filename(ClsFile *file);
-  bool           is_bad_file(ClsFile *file);
-  void           print_list_data(ClsData *file);
-  void           set_max_filelen(std::vector<ClsFile *> &files);
-  void           set_perm(std::string &str, int, int);
-  std::string    type_to_string(int);
-  std::string    size_to_string(ClsData *);
-  std::string    uid_to_string(int uid);
-  std::string    gid_to_string(int gid);
-  std::string    inode_to_string(int);
-  std::string    blocks_to_string(int);
-  std::string    time_to_string(CTime *time);
-  std::string    color_to_string(ClsColorType color);
-  void           split_files(const std::vector<ClsFile *> &files, std::vector<ClsFile *> &dfiles,
-                             std::vector<ClsFile *> &rfiles);
-  void           sort_files(std::vector<ClsFile *> &files);
-  void           output_files(std::vector<ClsFile *> &files);
-  std::string    encode_name(const std::string &name);
-  void           get_screen_size();
-  int            get_term_cols();
-  ClsFileType    decode_type_char(const std::string &opt, int c);
-  bool           enter_dir(const std::string &dir);
-  void           leave_dir();
-  std::string    exec_to_string(const std::string &command);
-  bool           special_glob_match(const std::string &file, ClsColorType *color);
-  int            exec_file(ClsFile *file, const std::string &command);
-//void           outputTypeEscape(ClsData *list_data);
-//void           outputTypeEscape(ClsData *list_data, const std::string &str);
-//void           outputTypeEscape(CFileType type, const std::string &str);
-//CFileType      get_data_type(ClsFile *file);
-//std::string    get_data_type_str(ClsFile *file);
-  void           outputColored(ClsColorType color, const std::string &str);
-  void           outputLine(const std::string &str);
-  void           output(const std::string &str);
+  bool isTest() const { return testFlags_ != 0; }
+  void setTestFlags(const std::string &str="", bool names=false);
+
+  bool isQuiet() const { return quiet_; }
+  void setQuiet(bool b) { quiet_ = b; }
+
+  bool isHtml() const { return html_; }
+  void setHtml(bool b) { html_ = b; }
+
+  bool isTypeEscape() const { return typeEscape_; }
+  void setTypeEscape(bool b) { typeEscape_ = b; }
+
+  bool isDataType() const { return dataType_; }
+  void setDataType(bool b) { dataType_ = b; }
+
+  bool isBadNames() const { return badNames_; }
+  void setBadNames(bool b) { badNames_ = b; }
+
+  bool isPreview() const { return preview_; }
+  void setPreview(bool b) { preview_ = b; }
+
+  bool isSilent() const { return silent_; }
+  void setSilent(bool b) { silent_ = b; }
+
+  const std::string &lsFormat() const { return lsFormat_; }
+  void setLsFormat(const std::string &v) { lsFormat_ = v; }
+
+  bool isUseColors() const { return useColors_; }
+  void setUseColors(bool b) { useColors_ = b; }
+
+  void          init();
+  void          processArgs(int argc, char **argv);
+  bool          exec();
+  bool          testFiles(const FileArray &files, FileSet &fileSet);
+  bool          listDirEntry(ClsFile *file);
+  bool          listDir(ClsFile *file);
+  bool          listCurrentDir(ClsFile *file);
+  bool          getDirFiles(ClsFile *file, FileArray &files);
+  void          addDirFiles(const std::string &name, FileArray &files);
+  ClsFilterType filterFile(ClsFile *file);
+  bool          listDirFiles(FileArray &files);
+  void          recurseFiles(FileArray &files);
+  void          freeDirFiles(FileArray &files);
+  bool          listFile(ClsFile *file);
+  bool          isBadFile(ClsFile *file);
+  bool          isBadLink(ClsFile *file);
+  void          printListData(ClsData *file);
+  void          setMaxFilelen(FileArray &files);
+  void          setPerm(std::string &str, int, int);
+  std::string   typeToString(int);
+  std::string   sizeToString(ClsData *);
+  std::string   uidToString(int uid);
+  std::string   gidToString(int gid);
+  std::string   inodeToString(int);
+  std::string   blocksToString(int);
+  std::string   timeToString(CTime *time);
+  std::string   colorToString(ClsColorType color);
+  void          splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles);
+  void          sortFiles(FileArray &files);
+  bool          outputFiles(FileArray &files);
+  std::string   encodeName(const std::string &name);
+  void          getScreenSize();
+  int           getTermCols();
+  ClsFileType   decodeTypeChar(const std::string &opt, int c);
+  bool          enterDir(const std::string &dir);
+  void          leaveDir();
+  std::string   execToString(const std::string &command);
+  bool          specialGlobMatch(const std::string &file, ClsColorType *color);
+  int           execFile(ClsFile *file, const std::string &command);
+  bool          runCommand(const std::string &cmd, int &status);
+  void          outputTypeEscape(ClsData *list_data);
+  void          outputTypeEscape(ClsData *list_data, const std::string &str);
+  void          outputTypeEscape(CFileType type, const std::string &str);
+  CFileType     getDataType(ClsFile *file);
+  std::string   getDataTypeStr(ClsFile *file);
+  void          outputColored(ClsColorType color, const std::string &str);
+  void          outputLine(const std::string &str);
+  void          output(const std::string &str);
 
  private:
   typedef std::vector<std::string> DirStack;
   typedef std::vector<CGlob *>     GlobArray;
-  typedef std::vector<ClsFile *>   FileArray;
 
-  bool               a_flag;
-  bool               b_flag;
-  bool               c_flag;
-  bool               d_flag;
-  bool               f_flag;
-  bool               g_flag;
-  bool               i_flag;
-  bool               k_flag;
-  bool               l_flag;
-  bool               m_flag;
-  bool               n_flag;
-  bool               o_flag;
-  bool               p_flag;
-  bool               q_flag;
-  bool               r_flag;
-  bool               s_flag;
-  bool               t_flag;
-  bool               u_flag;
-  bool               x_flag;
-  bool               A_flag;
-  bool               C_flag;
-  bool               F_flag;
-  bool               L_flag;
-  bool               M_flag;
-  bool               R_flag;
-  bool               T_flag;
+  bool               a_flag { false };
+  bool               b_flag { false };
+  bool               c_flag { false };
+  bool               d_flag { false };
+  bool               f_flag { false };
+  bool               g_flag { false };
+  bool               i_flag { false };
+  bool               k_flag { false };
+  bool               l_flag { false };
+  bool               m_flag { false };
+  bool               n_flag { false };
+  bool               o_flag { false };
+  bool               p_flag { false };
+  bool               q_flag { false };
+  bool               r_flag { false };
+  bool               s_flag { false };
+  bool               t_flag { false };
+  bool               u_flag { false };
+  bool               x_flag { false };
+  bool               A_flag { false };
+  bool               C_flag { false };
+  bool               F_flag { false };
+  bool               L_flag { false };
+  bool               M_flag { false };
+  bool               R_flag { false };
+  bool               T_flag { false };
 
-  bool               nlink_flag;
-  uint               user_uid_;
-  uint               user_gid_;
-  bool               show_links;
-  bool               show_bad;
-  bool               show_bad_user;
-  bool               show_bad_other;
-  bool               show_empty_dirs;
-  ClsSortType        sort_type;
-  int                force_width;
-  ClsFilterData      filter_data_;
-  mode_t             my_umask;
-  bool               full_path;
-  bool               no_path;
-  bool               show_secs;
-  bool               nocase;
+  bool               nlink_flag { false };
+  uint               user_uid_ { 0 };
+  uint               user_gid_ { 0 };
+  bool               show_links { false };
+  bool               show_bad { false };
+  bool               show_bad_user { false };
+  bool               show_bad_other { false };
+  bool               show_empty_dirs { false };
+  ClsSortType        sort_type { ClsSortType::NAME };
+  int                force_width { 0 };
+  ClsFilterData*     filterData_;
+  mode_t             my_umask { 0777 };
+  bool               full_path { false };
+  bool               no_path { false };
+  bool               show_secs { false };
+  bool               nocase { false };
   std::string        exec_init_cmd_;
   std::string        exec_term_cmd_;
   std::string        exec_cmd_;
-  bool               quiet;
-  bool               html;
-//bool               type_escape;
-  bool               datatype;
-  bool               bad_names;
 
-  int                num_columns;
+  uint               testFlags_  { 0 };
+  bool               testNames_  { false };
+  bool               quiet_      { false };
+  bool               html_       { false };
+  bool               typeEscape_ { false };
+  bool               dataType_   { false };
+  bool               badNames_   { false };
+  bool               preview_    { false };
+  bool               silent_     { false };
 
-  std::string        ls_format;
+  int                num_columns { 0 };
 
-  int                max_len;
-  size_t             max_size;
-  uint               max_size_len;
+  std::string        lsFormat_;
 
-  int                list_pos;
-  int                list_max_pos;
+  int                max_len { -1 };
+  size_t             max_size { 0 };
+  uint               max_size_len { 1 };
 
-  int                screen_rows;
-  int                screen_cols;
+  int                list_pos { 0 };
+  int                list_max_pos { 99 };
+
+  int                screen_rows { 60 };
+  int                screen_cols { 80 };
 
   std::string        base_dir;
 
   DirStack           previous_dir_stack;
+
   std::string        current_dir;
   std::string        relative_dir;
   std::string        relative_dir1;
-  int                dir_depth;
+  int                dir_depth { 0 };
 
-  CTime             *current_time_;
+  CTime             *current_time_ { nullptr };
 
   GlobArray          special_globs[7];
 
-  FileArray          files;
-  bool               read_files;
+  FileArray          files_;
+  bool               readFiles_ { false };
 
-  bool               use_colors;
+  bool               useColors_ { true };
 };
 
 #endif
