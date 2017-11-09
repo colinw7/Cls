@@ -357,7 +357,7 @@ getLStat()
 
   if (error != 0) {
     if (! ls_->isSilent())
-      std::cerr << name_ << ": " << strerror(errno) << std::endl;
+      std::cerr << name_ << ": " << strerror(errno) << "\n";
 
     delete lstat_;
 

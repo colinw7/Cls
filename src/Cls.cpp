@@ -176,7 +176,7 @@ init()
   if (screen_rows <= 0) screen_rows = 60;
 
   if (CEnvInst.exists("CLS_DEBUG_SCREEN_SIZE"))
-    std::cerr << "Columns: " << screen_cols << " Rows: " << screen_rows << std::endl;
+    std::cerr << "Columns: " << screen_cols << " Rows: " << screen_rows << "\n";
 
   list_pos     = 0;
   list_max_pos = screen_cols - 1;
@@ -186,7 +186,7 @@ init()
   current_time_ = new CTime();
 
   if (my_umask != 0022 && my_umask != 0002)
-    std::cerr << "Bad umask " << my_umask << std::endl;
+    std::cerr << "Bad umask " << my_umask << "\n";
 
   readFiles_ = false;
 }
@@ -363,11 +363,11 @@ processArgs(int argc, char **argv)
 
               break;
             case '?':
-              std::cerr << usage << std::endl;
+              std::cerr << usage << "\n";
 
               exit(0);
             default:
-              std::cerr << "Invalid switch -" << argv[i][j] << std::endl;
+              std::cerr << "Invalid switch -" << argv[i][j] << "\n";
               break;
           }
         }
@@ -379,7 +379,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --format" << std::endl;
+            std::cerr << "Missing argument for --format\n";
             continue;
           }
 
@@ -410,7 +410,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --special" << std::endl;
+            std::cerr << "Missing argument for --special\n";
             continue;
           }
 
@@ -458,14 +458,14 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --width" << std::endl;
+            std::cerr << "Missing argument for --width\n";
             continue;
           }
 
           force_width = atoi(argv[i]);
 
           if (force_width == 0) {
-            std::cerr << "Invalid value for --width" << std::endl;
+            std::cerr << "Invalid value for --width\n";
             continue;
           }
         }
@@ -473,14 +473,14 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --screen_cols" << std::endl;
+            std::cerr << "Missing argument for --screen_cols\n";
             continue;
           }
 
           screen_cols = atoi(argv[i]);
 
           if (screen_cols <= 0) {
-            std::cerr << "Invalid value for --screen_cols" << std::endl;
+            std::cerr << "Invalid value for --screen_cols\n";
             continue;
           }
         }
@@ -488,7 +488,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --sort" << std::endl;
+            std::cerr << "Missing argument for --sort\n";
             continue;
           }
 
@@ -500,14 +500,14 @@ processArgs(int argc, char **argv)
           else if (arg1 == "size"     ) sort_type = ClsSortType::SIZE;
           else if (arg1 == "extension") sort_type = ClsSortType::EXTENSION;
           else {
-            std::cerr << "Invalid value '" << argc << "' for --sort" << std::endl;
+            std::cerr << "Invalid value '" << argc << "' for --sort\n";
           }
         }
         else if (arg == "exclude_type") {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exclude_type" << std::endl;
+            std::cerr << "Missing argument for --exclude_type\n";
             continue;
           }
 
@@ -519,7 +519,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exclude" << std::endl;
+            std::cerr << "Missing argument for --exclude\n";
             continue;
           }
 
@@ -536,7 +536,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --include_type" << std::endl;
+            std::cerr << "Missing argument for --include_type\n";
             continue;
           }
 
@@ -548,7 +548,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --include" << std::endl;
+            std::cerr << "Missing argument for --include\n";
             continue;
           }
 
@@ -565,7 +565,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --newer" << std::endl;
+            std::cerr << "Missing argument for --newer\n";
             continue;
           }
 
@@ -575,7 +575,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --older" << std::endl;
+            std::cerr << "Missing argument for --older\n";
             continue;
           }
 
@@ -585,7 +585,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --larger" << std::endl;
+            std::cerr << "Missing argument for --larger\n";
             continue;
           }
 
@@ -595,7 +595,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --smaller" << std::endl;
+            std::cerr << "Missing argument for --smaller\n";
             continue;
           }
 
@@ -605,7 +605,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --match" << std::endl;
+            std::cerr << "Missing argument for --match\n";
             continue;
           }
 
@@ -622,7 +622,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --nomatch" << std::endl;
+            std::cerr << "Missing argument for --nomatch\n";
             continue;
           }
 
@@ -651,7 +651,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec_init" << std::endl;
+            std::cerr << "Missing argument for --exec_init\n";
             continue;
           }
 
@@ -661,7 +661,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec_term" << std::endl;
+            std::cerr << "Missing argument for --exec_term\n";
             continue;
           }
 
@@ -671,7 +671,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec" << std::endl;
+            std::cerr << "Missing argument for --exec\n";
             continue;
           }
 
@@ -681,7 +681,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --filter" << std::endl;
+            std::cerr << "Missing argument for --filter\n";
             continue;
           }
 
@@ -691,7 +691,7 @@ processArgs(int argc, char **argv)
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --test" << std::endl;
+            std::cerr << "Missing argument for --test\n";
             continue;
           }
 
@@ -722,12 +722,52 @@ processArgs(int argc, char **argv)
           setSilent(true);
         }
         else if (arg == "h" || arg == "help") {
-          std::cerr << usage << std::endl;
-
+          std::cerr << usage << "\n";
+          exit(0);
+        }
+        else if (arg == "help_format") {
+          std::cerr << "%b : file blocks\n";
+          std::cerr << "%c : specified color\n";
+          std::cerr << "%d : add date\n";
+          std::cerr << "%e : exec command with file\n";
+          std::cerr << "%f : add filename\n";
+          std::cerr << "%g : add gid\n";
+          std::cerr << "%i : add inode number\n";
+          std::cerr << "%l : add link number\n";
+          std::cerr << "%n : add number of links\n";
+          std::cerr << "%p : add permission\n";
+          std::cerr << "%s : add size\n";
+          std::cerr << "%t : add type\n";
+          std::cerr << "%u : add uid\n";
+          std::cerr << "%D : add relative directory\n";
+          std::cerr << "%G : add gid\n";
+          std::cerr << "%L : add link indicator\n";
+          std::cerr << "%U : add uid\n";
+          exit(0);
+        }
+        else if (arg == "help_file_type") {
+          std::cerr << "p: FIFO\n";
+          std::cerr << "c: CHR\n";
+          std::cerr << "d: DIR\n";
+          std::cerr << "b: BLK\n";
+          std::cerr << "f: REG\n";
+          std::cerr << "l: LNK\n";
+          std::cerr << "s: SOCK\n";
+          std::cerr << "x: EXEC\n";
+          std::cerr << "X: ELF\n";
+          std::cerr << "B: BAD\n";
+          std::cerr << "S: SPECIAL\n";
+          exit(0);
+        }
+        else if (arg == "help_exec") {
+          std::cerr << "%d : add directory\n";
+          std::cerr << "%f : add filename\n";
+          std::cerr << "%l : add link name\n";
+          std::cerr << "%p : add full path\n";
           exit(0);
         }
         else {
-          std::cerr << "Invalid switch --" << arg << std::endl;
+          std::cerr << "Invalid switch --" << arg << "\n";
         }
       }
     }
@@ -771,7 +811,7 @@ setTestFlags(const std::string &str, bool names)
     else if (str[i] == 'G') testFlags_ |= uint(ClsFileType::SPECIAL); // glob special
 
     else {
-      std::cerr << "Invalid test flag '" << str[i] << "'" << std::endl;
+      std::cerr << "Invalid test flag '" << str[i] << "'\n";
     }
   }
 }
@@ -1144,7 +1184,7 @@ getDirFiles(ClsFile *, FileArray &files)
 
   if (! dir.getFilenames(dir_files)) {
     if (! isSilent())
-      std::cerr << ".: " << dir.getErrorMsg() << std::endl;
+      std::cerr << ".: " << dir.getErrorMsg() << "\n";
     return false;
   }
 
@@ -1316,7 +1356,7 @@ listFile(ClsFile *file)
 
     std::cerr << "'";
     std::cerr << (full_path ? current_dir : relative_dir);
-    std::cerr << "/" << file->getName() << "'" << std::endl;
+    std::cerr << "/" << file->getName() << "'\n";
   }
 
   if (! file->exists())
@@ -1527,14 +1567,14 @@ printListData(ClsData *list_data)
       char justify = ' ';
 
       if (lsFormat_[i] == '-' || lsFormat_[i] == '+')
-        justify = lsFormat_[++i];
+        justify = lsFormat_[i++];
 
       int field_width = 0;
 
       while (i < len && isdigit(lsFormat_[i]))
         field_width = 10*field_width + (lsFormat_[++i] - '0');
 
-      std::string str;
+      std::string lstr, str, rstr;
       bool        force = false;
 
       switch (lsFormat_[i]) {
@@ -1628,14 +1668,13 @@ printListData(ClsData *list_data)
           if (field_width == 0 && max_len > 0)
             field_width = max_len;
 
-          if (justify == ' ')
-            justify = '-';
-
           if (isHtml())
             str = list_data->name;
-          else
-            str = colorToString(list_data->color) + list_data->name +
-                  colorToString(ClsColorType::NORMAL);
+          else {
+            lstr = colorToString(list_data->color);
+            str  = list_data->name;
+            rstr = colorToString(ClsColorType::NORMAL);
+          }
 
           break;
         }
@@ -1662,9 +1701,11 @@ printListData(ClsData *list_data)
           if (list_data->link_name != "") {
             if (isHtml())
               str = list_data->link_name;
-            else
-              str = colorToString(list_data->link_color) + list_data->link_name +
-                    colorToString(ClsColorType::NORMAL);
+            else {
+              lstr = colorToString(list_data->link_color);
+              str  = list_data->link_name;
+              rstr = colorToString(ClsColorType::NORMAL);
+            }
           }
           else {
             str   = "";
@@ -1755,6 +1796,8 @@ printListData(ClsData *list_data)
 
           str = relative_dir1;
 
+          full_path = true; // force full path
+
           break;
         }
         // add gid
@@ -1795,10 +1838,12 @@ printListData(ClsData *list_data)
       // add text to output (justified)
       if (str != "" || force) {
         if (field_width > 0) {
-          if (justify == '-')
-            output_string += CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_RIGHT);
+          if      (justify == '+')
+            output_string += lstr + CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_RIGHT) + rstr;
+          else if (justify == '-')
+            output_string += lstr + CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_LEFT ) + rstr;
           else
-            output_string += CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_LEFT);
+            output_string += lstr + str + rstr;
         }
         else
           output_string += str;
@@ -2466,11 +2511,11 @@ outputFiles(FileArray &files)
           output = true;
         }
 
-        std::cout << std::endl;
+        std::cout << "\n";
       }
     }
     else {
-      std::cout << fileSet.size() << std::endl;
+      std::cout << fileSet.size() << "\n";
     }
 
     return true;
@@ -2692,7 +2737,7 @@ decodeTypeChar(const std::string &opt, int c)
     case 'B': type = ClsFileType::BAD;     break;
     case 'S': type = ClsFileType::SPECIAL; break;
     default: {
-      std::cerr << "Invalid --" << opt << " type " << (char) c << std::endl;
+      std::cerr << "Invalid --" << opt << " type " << (char) c << "\n";
       break;
     }
   }
@@ -2706,7 +2751,7 @@ enterDir(const std::string &dir)
 {
   if (! CDir::enter(dir)) {
     if (! isSilent())
-      std::cerr << CDir::getErrorMsg() << std::endl;
+      std::cerr << CDir::getErrorMsg() << "\n";
     return false;
   }
 
@@ -2745,7 +2790,7 @@ leaveDir()
 {
   if (! CDir::leave()) {
     if (! isSilent())
-      std::cerr << CDir::getErrorMsg() << std::endl;
+      std::cerr << CDir::getErrorMsg() << "\n";
     return;
   }
 
@@ -2856,7 +2901,7 @@ execFile(ClsFile *file, const std::string &exec_cmd)
       }
       // handle bad format
       default: {
-        std::cerr << "Bad exec % code" << std::endl;
+        std::cerr << "Bad exec % code\n";
         break;
       }
     }
@@ -2885,9 +2930,9 @@ execFile(ClsFile *file, const std::string &exec_cmd)
     std::string args = exec_cmd1.substr(i);
 
     if (isPreview())
-      std::cout << "echo " << args << std::endl;
+      std::cout << "echo " << args << "\n";
     else
-      std::cout << args << std::endl;
+      std::cout << args << "\n";
 
     return true;
   }
@@ -2902,13 +2947,13 @@ execFile(ClsFile *file, const std::string &exec_cmd)
     std::string args = exec_cmd1.substr(i);
 
     if (isPreview()) {
-      std::cout << "rm " << args << std::endl;
+      std::cout << "rm " << args << "\n";
     }
     else {
       int rc = unlink(args.c_str());
 
       if (rc != 0) {
-        std::cerr << "rm failed for " << args << std::endl;
+        std::cerr << "rm failed for " << args << "\n";
         return false;
       }
     }
@@ -2931,7 +2976,7 @@ Cls::
 runCommand(const std::string &cmd, int &status)
 {
   if (isPreview()) {
-    std::cout << cmd << std::endl;
+    std::cout << cmd << "\n";
     return true;
   }
 
@@ -2941,7 +2986,7 @@ runCommand(const std::string &cmd, int &status)
 
   if (! COSProcess::executeCommand(cmd.c_str(), &state)) {
     if (! isSilent())
-      std::cerr << "exec failed for " << cmd << std::endl;
+      std::cerr << "exec failed for " << cmd << "\n";
     return false;
   }
 
@@ -3026,7 +3071,7 @@ Cls::
 outputLine(const std::string &str)
 {
   if (! isQuiet())
-    std::cout << str << std::endl;
+    std::cout << str << "\n";
 }
 
 void

@@ -37,5 +37,8 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--datatype|--data_type]\n\
    [--bad_names]\n\
    [--silent]\n\
-   [--h/elp]\
+   [--h/elp]\n\
+   [--help_format]\n\
+   [--help_file_type]\n\
+   [--help_exec]\
 ";
