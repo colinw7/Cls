@@ -221,6 +221,7 @@ class Cls {
   bool               no_path { false };
   bool               show_secs { false };
   bool               nocase { false };
+  bool               locale { true };
   std::string        exec_init_cmd_;
   std::string        exec_term_cmd_;
   std::string        exec_cmd_;

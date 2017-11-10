@@ -25,7 +25,7 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--full_path/--fullpath]\n\
    [--no_path/--nopath]\n\
    [--show_secs]\n\
-   [--nocase]\n\
+   [--case|--nocase]\n\
    [--exec_init <cmd>]\n\
    [--exec_term <cmd>]\n\
    [--exec <cmd>]\n\

@@ -33,23 +33,24 @@
 
 class ClsCompareNames {
  public:
-  ClsCompareNames(bool nocase1, bool reverse1) :
-   nocase(nocase1), reverse(reverse1) {
+  ClsCompareNames(bool nocase, bool reverse, bool locale) :
+   nocase(nocase), reverse(reverse), locale(locale) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
 
  private:
-  bool nocase { false };
+  bool nocase  { false };
   bool reverse { false };
+  bool locale  { false };
 };
 
 //---
 
 class ClsCompareTimes {
  public:
-  ClsCompareTimes(bool ctime1, bool utime1, bool mtime1, bool reverse1) :
-   ctime(ctime1), utime(utime1), mtime(mtime1), reverse(reverse1) {
+  ClsCompareTimes(bool ctime, bool utime, bool mtime, bool reverse) :
+   ctime(ctime), utime(utime), mtime(mtime), reverse(reverse) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
@@ -65,8 +66,8 @@ class ClsCompareTimes {
 
 class ClsCompareSizes {
  public:
-  explicit ClsCompareSizes(bool reverse1) :
-   reverse(reverse1) {
+  explicit ClsCompareSizes(bool reverse) :
+   reverse(reverse) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
@@ -143,6 +144,7 @@ init()
   no_path         = false;
   show_secs       = false;
   nocase          = false;
+  locale          = true;
   exec_init_cmd_  = "";
   exec_term_cmd_  = "";
   exec_cmd_       = "";
@@ -644,8 +646,17 @@ processArgs(int argc, char **argv)
         else if (arg == "show_secs") {
           show_secs = true;
         }
+        else if (arg == "case") {
+          nocase = false;
+        }
         else if (arg == "nocase") {
           nocase = true;
+        }
+        else if (arg == "locale") {
+          locale = true;
+        }
+        else if (arg == "nolocale") {
+          locale = false;
         }
         else if (arg == "exec_init") {
           ++i;
@@ -2366,10 +2377,12 @@ operator()(ClsFile *file1, ClsFile *file2)
 {
   int cmp;
 
-  if (nocase)
+  if      (nocase)
     cmp = CStrUtil::casecmp(file1->getName(), file2->getName());
-  else
+  else if (! locale)
     cmp = CStrUtil::cmp(file1->getName(), file2->getName());
+  else
+    cmp = strcoll(file1->getName().c_str(), file2->getName().c_str());
 
   if (reverse)
     cmp = -cmp;
@@ -2475,7 +2488,7 @@ Cls::
 sortFiles(FileArray &files)
 {
   if      (sort_type == ClsSortType::NAME)
-    std::sort(files.begin(), files.end(), ClsCompareNames(nocase, r_flag));
+    std::sort(files.begin(), files.end(), ClsCompareNames(nocase, r_flag, locale));
   else if (sort_type == ClsSortType::TIME)
     std::sort(files.begin(), files.end(), ClsCompareTimes(c_flag, u_flag, m_flag, r_flag));
   else if (sort_type == ClsSortType::SIZE)
