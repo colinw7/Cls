@@ -113,6 +113,9 @@ class Cls {
   bool isBadNames() const { return badNames_; }
   void setBadNames(bool b) { badNames_ = b; }
 
+  bool isRenameBad() const { return renameBad_; }
+  void setRenameBad(bool b) { renameBad_ = b; }
+
   bool isPreview() const { return preview_; }
   void setPreview(bool b) { preview_ = b; }
 
@@ -233,6 +236,7 @@ class Cls {
   bool               typeEscape_ { false };
   bool               dataType_   { false };
   bool               badNames_   { false };
+  bool               renameBad_  { false };
   bool               preview_    { false };
   bool               silent_     { false };
 

@@ -155,6 +155,7 @@ init()
   setTypeEscape(false);
   setDataType  (false);
   setBadNames  (false);
+  setRenameBad (false);
   setPreview   (false);
   setSilent    (false);
   setUseColors (true);
@@ -725,6 +726,9 @@ processArgs(int argc, char **argv)
         }
         else if (arg == "bad_names") {
           setBadNames(true);
+        }
+        else if (arg == "rename_bad") {
+          setRenameBad(true);
         }
         else if (arg == "preview") {
           setPreview(true);
@@ -1361,13 +1365,23 @@ listFile(ClsFile *file)
 {
   static char link_name[MAXPATHLEN + 1];
 
-  if (isBadNames() && CFileUtil::isBadFilename(file->getName())) {
-    if (! isQuiet())
-      std::cerr << "Bad filename ";
+  if (isBadNames() || isRenameBad()) {
+    if (CFileUtil::isBadFilename(file->getName())) {
+      std::string pathName = (full_path ? current_dir : relative_dir) + "/" + file->getName();
 
-    std::cerr << "'";
-    std::cerr << (full_path ? current_dir : relative_dir);
-    std::cerr << "/" << file->getName() << "'\n";
+      if (isBadNames()) {
+        if (! isQuiet())
+          std::cerr << "Bad filename '" << pathName << "'\n";
+        else
+          std::cerr <<  pathName << "\n";
+      }
+      else {
+        std::string newName     = CFileUtil::fixBadFilename(file->getName());
+        std::string newPathName = (full_path ? current_dir : relative_dir) + "/" + newName;
+
+        std::cerr << "mv '" << pathName << "' " << newPathName << "\n";
+      }
+    }
   }
 
   if (! file->exists())
