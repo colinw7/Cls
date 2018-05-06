@@ -2088,8 +2088,10 @@ printListData(ClsData *list_data)
         }
       }
 
-      for (uint i = 0; i < max_len - len; ++i)
-        output(" ");
+      if (int(len) < max_len) {
+        for (uint i = 0; i < max_len - len; ++i)
+          output(" ");
+      }
     }
     else if (m_flag) {
       uint len = list_data->name.size();
