@@ -173,9 +173,12 @@ class Cls {
   void          outputTypeEscape(CFileType type, const std::string &str);
   CFileType     getDataType(ClsFile *file);
   std::string   getDataTypeStr(ClsFile *file);
-  void          outputColored(ClsColorType color, const std::string &str);
-  void          outputLine(const std::string &str);
-  void          output(const std::string &str);
+
+  void outputHtmlClipped(const std::string &str1, const std::string &str2);
+  void outputClipped(ClsColorType color, const std::string &str);
+  void outputColored(ClsColorType color, const std::string &str);
+  void outputLine(const std::string &str);
+  void output(const std::string &str);
 
  private:
   typedef std::vector<std::string> DirStack;
@@ -218,6 +221,7 @@ class Cls {
   bool               show_empty_dirs { false };
   ClsSortType        sort_type { ClsSortType::NAME };
   int                force_width { 0 };
+  bool               clip_left { false };
   ClsFilterData*     filterData_;
   mode_t             my_umask { 0777 };
   bool               full_path { false };

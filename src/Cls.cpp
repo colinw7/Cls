@@ -472,6 +472,9 @@ processArgs(int argc, char **argv)
             continue;
           }
         }
+        else if (arg == "clip_left") {
+          clip_left = true;
+        }
         else if (arg == "screen_cols") {
           ++i;
 
@@ -1864,9 +1867,11 @@ printListData(ClsData *list_data)
       if (str != "" || force) {
         if (field_width > 0) {
           if      (justify == '+')
-            output_string += lstr + CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_RIGHT) + rstr;
+            output_string +=
+              lstr + CStrFmt::align(str, field_width, CStrFmt::AlignType::RIGHT) + rstr;
           else if (justify == '-')
-            output_string += lstr + CStrFmt::align(str, field_width, CSTR_FMT_ALIGN_LEFT ) + rstr;
+            output_string +=
+              lstr + CStrFmt::align(str, field_width, CStrFmt::AlignType::LEFT ) + rstr;
           else
             output_string += lstr + str + rstr;
         }
@@ -1888,7 +1893,7 @@ printListData(ClsData *list_data)
     if (isDataType()) {
       std::string type = getDataTypeStr(list_data->file);
 
-      output(CStrFmt::align(type, 12, CSTR_FMT_ALIGN_LEFT));
+      output(CStrFmt::align(type, 12, CStrFmt::AlignType::LEFT));
     }
 
     if       (l_flag) {
@@ -1912,10 +1917,10 @@ printListData(ClsData *list_data)
         CStrUtil::printf(" %3d", list_data->nlink);
 
       if (! o_flag)
-        output(" " + CStrFmt::align(uidToString(list_data->uid), 8, CSTR_FMT_ALIGN_LEFT));
+        output(" " + CStrFmt::align(uidToString(list_data->uid), 8, CStrFmt::AlignType::LEFT));
 
       if (! g_flag)
-        output(" " + CStrFmt::align(gidToString(list_data->gid), 8, CSTR_FMT_ALIGN_LEFT));
+        output(" " + CStrFmt::align(gidToString(list_data->gid), 8, CStrFmt::AlignType::LEFT));
 
       if (list_data->type == 'b' || list_data->type == 'c')
         CStrUtil::printf(" %3d,%3d", major(list_data->rdev), minor(list_data->rdev));
@@ -1953,12 +1958,16 @@ printListData(ClsData *list_data)
         }
       }
 
+      std::string tstr;
+
       if      (c_flag)
-        output(" " + CStrFmt::align(timeToString(list_data->ctime), 12, CSTR_FMT_ALIGN_RIGHT));
+        tstr = timeToString(list_data->ctime);
       else if (u_flag)
-        output(" " + CStrFmt::align(timeToString(list_data->atime), 12, CSTR_FMT_ALIGN_RIGHT));
+        tstr = timeToString(list_data->atime);
       else
-        output(" " + CStrFmt::align(timeToString(list_data->mtime), 12, CSTR_FMT_ALIGN_RIGHT));
+        tstr = timeToString(list_data->mtime);
+
+      output(" " + CStrFmt::align(tstr, 12, CStrFmt::AlignType::RIGHT));
 
       output(" ");
 
@@ -1966,8 +1975,14 @@ printListData(ClsData *list_data)
 
       uint len = name.size();
 
-      if (force_width != 0 && (int) len > force_width)
-        name = CStrFmt::align(name, force_width - 1, CSTR_FMT_ALIGN_LEFT, ' ', true) + ">";
+      if (force_width > 0 && int(len) > force_width) {
+        if (clip_left)
+          name = "<" + CStrFmt::align(name, force_width - 1, CStrFmt::AlignType::LEFT, ' ',
+                                      CStrFmt::ClipType::LEFT);
+        else
+          name = CStrFmt::align(name, force_width - 1, CStrFmt::AlignType::LEFT, ' ',
+                                CStrFmt::ClipType::RIGHT) + ">";
+      }
 
       if (isHtml()) {
         output("<a href='" + relative_dir1 + "/" + name + "'>" + name + "</a>");
@@ -2037,53 +2052,51 @@ printListData(ClsData *list_data)
         if (full_path) {
           uint relative_dir1_len = relative_dir1.size();
 
-          if ((int) relative_dir1_len + 1 <= force_width) {
+          if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
-              CStrFmt::align(relative_dir1, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
+              CStrFmt::align(relative_dir1, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+                             (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
-              output("<a href='" + relative_dir1 + "'>" + relative_dir2 + "></a>");
+              outputHtmlClipped(relative_dir1, relative_dir2);
             }
             else {
               if (isTypeEscape())
                 outputTypeEscape(list_data);
 
-              outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputClipped(list_data->color, relative_dir2);
             }
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
               CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
-                             CSTR_FMT_ALIGN_RIGHT, ' ', true);
+                             CStrFmt::AlignType::RIGHT, ' ',
+                             (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
-              output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
-                     relative_dir2 + "></a>");
+              outputHtmlClipped(relative_dir1 + "/" + list_data->name, relative_dir2);
             }
             else {
               if (isTypeEscape())
                 outputTypeEscape(list_data);
 
-              outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputClipped(list_data->color, relative_dir2);
             }
           }
         }
         else {
           std::string relative_dir2 =
-            CStrFmt::align(list_data->name, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
+            CStrFmt::align(list_data->name, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+                           (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
           if (isHtml()) {
-            output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
-                   relative_dir2 + "></a>");
+            outputHtmlClipped(relative_dir1 + "/" + list_data->name, relative_dir2);
           }
           else {
             if (isTypeEscape())
               outputTypeEscape(list_data);
 
-            outputColored(list_data->color, relative_dir2);
-            outputColored(ClsColorType::CLIPPED   , ">");
+            outputClipped(list_data->color, relative_dir2);
           }
         }
       }
@@ -2163,54 +2176,54 @@ printListData(ClsData *list_data)
         if (full_path) {
           uint relative_dir1_len = relative_dir1.size();
 
-          if ((int) relative_dir1_len + 1 <= force_width) {
+          if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
-              CStrFmt::align(relative_dir1, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
+              CStrFmt::align(relative_dir1, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+                             (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
-              output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
-                     relative_dir2 + "</a><br>");
+              outputHtmlClipped(relative_dir1 + "/" + list_data->name, relative_dir2);
+              output("<br>");
             }
             else {
               if (isTypeEscape())
                 outputTypeEscape(list_data);
 
-              outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputClipped(list_data->color, relative_dir2);
             }
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
               CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
-                             CSTR_FMT_ALIGN_RIGHT, ' ', true);
+                             CStrFmt::AlignType::RIGHT, ' ',
+                             (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
-              output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
-                     relative_dir2 + "</a><br>");
+              outputHtmlClipped(relative_dir1 + "/" + list_data->name, relative_dir2);
+              output("<br>");
             }
             else {
               if (isTypeEscape())
                 outputTypeEscape(list_data);
 
-              outputColored(list_data->color, relative_dir2);
-              outputColored(ClsColorType::CLIPPED   , ">");
+              outputClipped(list_data->color, relative_dir2);
             }
           }
         }
         else {
           std::string relative_dir2 =
-            CStrFmt::align(list_data->name, force_width - 1, CSTR_FMT_ALIGN_RIGHT, ' ', true);
+            CStrFmt::align(list_data->name, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+                           (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
           if (isHtml()) {
-            output("<a href='" + relative_dir1 + "/" + list_data->name + "'>" +
-                   relative_dir2 + "</a><br>");
+            outputHtmlClipped(relative_dir1 + "/" + list_data->name, relative_dir2);
+            output("<br>");
           }
           else {
             if (isTypeEscape())
               outputTypeEscape(list_data);
 
-            outputColored(list_data->color, relative_dir2);
-            outputColored(ClsColorType::CLIPPED   , ">");
+            outputClipped(list_data->color, relative_dir2);
           }
         }
       }
@@ -3083,6 +3096,30 @@ getDataTypeStr(ClsFile *file)
   std::string type_str = CFileUtil::getTypeStr(type);
 
   return type_str + ']';
+}
+
+void
+Cls::
+outputHtmlClipped(const std::string &str1, const std::string &str2)
+{
+  if (clip_left)
+    output("<a href='" + str1 + "'>" + str2 + "&gt;" + "</a>");
+  else
+    output("<a href='" + str1 + "'>" + "&lt;" + str2 + "</a>");
+}
+
+void
+Cls::
+outputClipped(ClsColorType color, const std::string &str)
+{
+  if (clip_left) {
+    outputColored(ClsColorType::CLIPPED, "<");
+    outputColored(color, str);
+  }
+  else {
+    outputColored(color, str);
+    outputColored(ClsColorType::CLIPPED, ">");
+  }
 }
 
 void
