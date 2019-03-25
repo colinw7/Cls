@@ -23,6 +23,7 @@
 #include <cmath>
 #include <unistd.h>
 #include <sys/param.h>
+#include <sys/sysmacros.h>
 
 #include <algorithm>
 
@@ -213,6 +214,7 @@ processArgs(int argc, char **argv)
             case 'b':
               b_flag = true;
               q_flag = false;
+              break;
             case 'c':
               c_flag = true;
               u_flag = false;
@@ -1972,6 +1974,9 @@ printListData(ClsData *list_data)
       output(" ");
 
       std::string name = list_data->name;
+
+      if (full_path)
+        name = relative_dir1 + "/" + list_data->name;
 
       uint len = name.size();
 
