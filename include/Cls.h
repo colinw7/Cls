@@ -157,7 +157,8 @@ class Cls {
   std::string   colorToString(ClsColorType color);
   void          splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles);
   void          sortFiles(FileArray &files);
-  bool          outputFiles(FileArray &files);
+  bool          outputFiles(const FileArray &files);
+  bool          outputFiles1(const FileArray &files);
   std::string   encodeName(const std::string &name);
   void          getScreenSize();
   int           getTermCols();

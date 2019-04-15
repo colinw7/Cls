@@ -17,6 +17,7 @@
 #include <CTime.h>
 #include <CGlob.h>
 
+#include <map>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -569,6 +570,18 @@ processArgs(int argc, char **argv)
               filterData_->addIncludeType((int) type);
           }
         }
+        else if (arg == "prefix") {
+          ++i;
+
+          if (i >= argc) {
+            std::cerr << "Missing argument for --prefix\n";
+            continue;
+          }
+
+          const char *prefix = argv[i];
+
+          filterData_->addPrefix(prefix);
+        }
         else if (arg == "newer") {
           ++i;
 
@@ -621,10 +634,8 @@ processArgs(int argc, char **argv)
 
           CStrUtil::addWords(argv[i], words);
 
-          uint num_words = words.size();
-
-          for (uint j = 0; j < num_words; ++j)
-            filterData_->addMatch(words[j]);
+          for (const auto &word : words)
+            filterData_->addMatch(word);
         }
         else if (arg == "nomatch") {
           ++i;
@@ -638,10 +649,8 @@ processArgs(int argc, char **argv)
 
           CStrUtil::addWords(argv[i], words);
 
-          uint num_words = words.size();
-
-          for (uint j = 0; j < num_words; ++j)
-            filterData_->addNoMatch(words[j]);
+          for (const auto &word : words)
+            filterData_->addNoMatch(word);
         }
         else if (arg == "full_path" || arg == "fullpath") {
           full_path = true;
@@ -860,7 +869,9 @@ exec()
 
     // remove colors from input string
     if (isUseColors()) {
-      for (uint i = 0; i < 7; ++i) {
+      static uint NUM_COLORS = 7;
+
+      for (uint i = 0; i < NUM_COLORS; ++i) {
         std::string color = colorToString((ClsColorType) i);
 
         uint color_len = color.size();
@@ -890,15 +901,6 @@ exec()
 
       files_.push_back(file);
     }
-  }
-
-  //----
-
-  // if no files then output current directory
-  if (files_.empty()) {
-    ClsFile *file = new ClsFile(this, L_flag, ".", ".");
-
-    files_.push_back(file);
   }
 
   //----
@@ -959,9 +961,17 @@ exec()
   bool rc = true;
 
   // split input files into directory and regular files
+  // (if no files then just add current directory)
   FileArray dfiles, rfiles;
 
-  splitFiles(files_, dfiles, rfiles);
+  if (files_.empty()) {
+    ClsFile *file = new ClsFile(this, L_flag, ".", ".");
+
+    dfiles.push_back(file);
+  }
+  else {
+    splitFiles(files_, dfiles, rfiles);
+  }
 
   //---
 
@@ -1094,12 +1104,10 @@ listDirEntry(ClsFile *file)
     }
   }
   else {
-    uint num_files = files.size();
-
     int num_files1 = 0;
 
-    for (uint i = 0; i < num_files; ++i) {
-      if (files[i]->getIsOutput())
+    for (const auto &file : files) {
+      if (file->getIsOutput())
         ++num_files1;
     }
 
@@ -1213,15 +1221,13 @@ getDirFiles(ClsFile *, FileArray &files)
     addDirFiles("..", files);
   }
 
-  uint num_dir_files = dir_files.size();
-
-  for (uint i = 0; i < num_dir_files; ++i) {
-    if (dir_files[i][0] == '.') {
+  for (const auto &dir_file : dir_files) {
+    if (dir_file[0] == '.') {
       if (! a_flag && ! A_flag)
         continue;
     }
 
-    addDirFiles(dir_files[i], files);
+    addDirFiles(dir_file, files);
   }
 
   return true;
@@ -2242,13 +2248,11 @@ void
 Cls::
 setMaxFilelen(FileArray &files)
 {
-  uint num_files = files.size();
-
   if (force_width == 0) {
     max_len = 0;
 
-    for (uint i = 0; i < num_files; ++i) {
-      uint len = files[i]->getLinkName().size();
+    for (const auto &file : files) {
+      uint len = file->getLinkName().size();
 
       if ((int) len > max_len)
         max_len = len;
@@ -2268,8 +2272,8 @@ setMaxFilelen(FileArray &files)
 
   max_size = 0;
 
-  for (uint i = 0; i < num_files; ++i) {
-    size_t size = files[i]->getSize();
+  for (const auto &file : files) {
+    size_t size = file->getSize();
 
     max_size = std::max(max_size, size);
   }
@@ -2533,7 +2537,57 @@ sortFiles(FileArray &files)
 
 bool
 Cls::
-outputFiles(FileArray &files)
+outputFiles(const FileArray &files)
+{
+  using PrefixFiles = std::map<std::string,FileArray>;
+  using FileSet     = std::set<ClsFile *>;
+
+  PrefixFiles prefixFiles;
+  FileSet     fileSet;
+
+  if (! filterData_->prefixes().empty()) {
+    for (const auto &prefix : filterData_->prefixes()) {
+      std::size_t prefixLen = prefix.size();
+
+      for (const auto &file : files) {
+        if (fileSet.find(file) != fileSet.end())
+          continue;
+
+        std::size_t nameLen = file->getLinkName().size();
+
+        if (nameLen >= prefixLen && file->getLinkName().substr(0, prefixLen) == prefix) {
+          file->setLinkName(file->getLinkName().substr(prefixLen));
+
+          prefixFiles[prefix].push_back(file);
+
+          fileSet.insert(file);
+        }
+      }
+    }
+
+    for (const auto &file : files) {
+      if (fileSet.find(file) != fileSet.end())
+        continue;
+
+      prefixFiles[""].push_back(file);
+    }
+
+    for (const auto &p : prefixFiles) {
+      outputColored(ClsColorType::CLIPPED, p.first + "...\n");
+
+      outputFiles1(p.second);
+    }
+
+    return true;
+  }
+  else {
+    return outputFiles1(files);
+  }
+}
+
+bool
+Cls::
+outputFiles1(const FileArray &files)
 {
   if (isTest()) {
     if (files.empty())
@@ -2575,11 +2629,9 @@ outputFiles(FileArray &files)
   if       (C_flag) {
     FileArray files1;
 
-    uint num_files = files.size();
-
-    for (uint i = 0; i < num_files; ++i) {
-      if (files[i]->getIsOutput())
-        files1.push_back(files[i]);
+    for (const auto &file : files) {
+      if (file->getIsOutput())
+        files1.push_back(file);
     }
 
     int columns = (list_max_pos + 1)/(max_len + 1);
@@ -2632,12 +2684,10 @@ outputFiles(FileArray &files)
     else
       columns = num_columns;
 
-    uint num_files = files.size();
-
     int j = 0;
 
-    for (uint i = 0; i < num_files; ++i) {
-      if (! files[i]->getIsOutput())
+    for (const auto &file : files) {
+      if (! file->getIsOutput())
         continue;
 
       if (j > 0) {
@@ -2645,7 +2695,7 @@ outputFiles(FileArray &files)
           output(" ");
       }
 
-      if (! listFile(files[i]))
+      if (! listFile(file))
         rc = false;
 
       ++j;
@@ -2672,10 +2722,8 @@ outputFiles(FileArray &files)
     }
   }
   else if (T_flag) {
-    uint num_files = files.size();
-
-    for (uint i = 0; i < num_files; ++i) {
-      if (! files[i]->getIsOutput())
+    for (const auto &file : files) {
+      if (! file->getIsOutput())
         continue;
 
       for (int j = 0; j < dir_depth - 1; ++j)
@@ -2683,18 +2731,16 @@ outputFiles(FileArray &files)
 
       output("|- ");
 
-      if (! listFile(files[i]))
+      if (! listFile(file))
         rc = false;
     }
   }
   else {
-    uint num_files = files.size();
-
-    for (uint i = 0; i < num_files; ++i) {
-      if (! files[i]->getIsOutput())
+    for (const auto &file : files) {
+      if (! file->getIsOutput())
         continue;
 
-      if (! listFile(files[i]))
+      if (! listFile(file))
         rc = false;
     }
   }
@@ -2886,14 +2932,15 @@ bool
 Cls::
 specialGlobMatch(const std::string &file, ClsColorType *color)
 {
-  for (uint i = 0; i <= 6; ++i) {
-    uint num_special_globs = special_globs[i].size();
+  static uint NUM_COLORS = 7;
 
+  for (uint i = 0; i < NUM_COLORS; ++i) {
     *color = (ClsColorType) i;
 
-    for (uint j = 0; j < num_special_globs; ++j)
-      if (special_globs[i][j]->compare(file))
+    for (const auto &special_glob : special_globs[i]) {
+      if (special_glob->compare(file))
         return true;
+    }
   }
 
   return false;

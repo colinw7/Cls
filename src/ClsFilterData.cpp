@@ -31,6 +31,15 @@ addExcludeFileType(const std::string &fileType)
 
 void
 ClsFilterData::
+addPrefix(const std::string &prefix)
+{
+  prefixes_.push_back(prefix);
+
+  filtered_ = true;
+}
+
+void
+ClsFilterData::
 addMatch(const std::string &pattern)
 {
   match_patterns_.push_back(new CGlob(pattern));
@@ -122,7 +131,9 @@ checkFile(Cls *cls, ClsFile *file) const
   if (newer_ >= 0) {
     long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
 
-    if (diff > newer_*SECONDS_PER_DAY)
+    long days = diff/SECONDS_PER_DAY;
+
+    if (days > newer_)
       return false;
   }
 
@@ -132,7 +143,9 @@ checkFile(Cls *cls, ClsFile *file) const
   if (older_ >= 0) {
     long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
 
-    if (diff < older_*SECONDS_PER_DAY)
+    long days = diff/SECONDS_PER_DAY;
+
+    if (days <= older_)
       return false;
   }
 

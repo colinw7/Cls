@@ -10,6 +10,9 @@ class CGlob;
 
 class ClsFilterData {
  public:
+  using Prefixes = std::vector<std::string>;
+
+ public:
   ClsFilterData();
 
   void addIncludeType(int type) {
@@ -27,6 +30,8 @@ class ClsFilterData {
   }
 
   void addExcludeFileType(const std::string &fileType);
+
+  void addPrefix(const std::string &prefix);
 
   void addMatch  (const std::string &pattern);
   void addNoMatch(const std::string &pattern);
@@ -64,12 +69,14 @@ class ClsFilterData {
 
   bool checkFile(Cls *cls, ClsFile *file) const;
 
+  const Prefixes &prefixes() const { return prefixes_; }
+
  private:
   bool checkIncludeFile(Cls *cls, ClsFile *file) const;
   bool checkExcludeFile(Cls *cls, ClsFile *file) const;
 
  private:
-  typedef std::vector<CGlob *> PatternList;
+  using PatternList = std::vector<CGlob *>;
 
   bool filtered_ { false };
 
@@ -77,6 +84,7 @@ class ClsFilterData {
   PatternList includeFileTypes_;
   uint        excludeFlags_ { 0 };
   PatternList excludeFileTypes_;
+  Prefixes    prefixes_;
   PatternList match_patterns_;
   PatternList nomatch_patterns_;
 
