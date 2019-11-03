@@ -58,9 +58,9 @@ class ClsCompareTimes {
   int operator()(ClsFile *file1, ClsFile *file2);
 
  private:
-  bool ctime { false };
-  bool utime { false };
-  bool mtime { false };
+  bool ctime   { false };
+  bool utime   { false };
+  bool mtime   { false };
   bool reverse { false };
 };
 
@@ -1106,8 +1106,8 @@ listDirEntry(ClsFile *file)
   else {
     int num_files1 = 0;
 
-    for (const auto &file : files) {
-      if (file->getIsOutput())
+    for (const auto &file1 : files) {
+      if (file1->getIsOutput())
         ++num_files1;
     }
 
@@ -2434,6 +2434,9 @@ operator()(ClsFile *file1, ClsFile *file2)
 {
   int cmp;
 
+  if (! ctime && ! utime && ! mtime)
+    mtime = true;
+
   if      (ctime) {
     CTime *ctime1 = file1->getCTime();
     CTime *ctime2 = file2->getCTime();
@@ -2452,7 +2455,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     else
       cmp = atime1 - atime2;
   }
-  else {
+  else if (mtime) {
     CTime *mtime1 = file1->getMTime();
     CTime *mtime2 = file2->getMTime();
 
@@ -2460,6 +2463,9 @@ operator()(ClsFile *file1, ClsFile *file2)
       cmp = (int) mtime2->diff(*mtime1);
     else
       cmp = mtime1 - mtime2;
+  }
+  else {
+    assert(false);
   }
 
   if (reverse)
@@ -2540,7 +2546,6 @@ Cls::
 outputFiles(const FileArray &files)
 {
   using PrefixFiles = std::map<std::string,FileArray>;
-  using FileSet     = std::set<ClsFile *>;
 
   PrefixFiles prefixFiles;
   FileSet     fileSet;
