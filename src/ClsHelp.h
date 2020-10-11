@@ -16,6 +16,7 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--sort {name,time,size,extension}]\n\
    [--excl/ude <file_flags>]\n\
    [--incl/ude <file_flags>]\n\
+   [--prefix <prefix>]\n\
    [--newer <days>]\n\
    [--older <days>]\n\
    [--larger <bytes>]\n\
