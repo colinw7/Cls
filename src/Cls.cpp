@@ -3121,7 +3121,7 @@ outputTypeEscape(CFileType type, const std::string &str)
     output(CEscape::APC("<link type=\"" + type_str + "\"" + " dir=\"" + current_dir + "\"" +
                         " name=\"" + str + "\"/>"));
 #else
-    output(str);
+    assert(str.length());
 #endif
   }
 }
