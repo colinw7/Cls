@@ -1608,7 +1608,7 @@ printListData(ClsData *list_data)
       int field_width = 0;
 
       while (i < len && isdigit(lsFormat_[i]))
-        field_width = 10*field_width + (lsFormat_[++i] - '0');
+        field_width = 10*field_width + (lsFormat_[i++] - '0');
 
       std::string lstr, str, rstr;
       bool        force = false;
