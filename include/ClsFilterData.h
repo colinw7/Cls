@@ -15,7 +15,7 @@ class ClsFilterData {
  public:
   ClsFilterData();
 
-  void addIncludeType(int type) {
+  void addIncludeType(uint type) {
     includeFlags_ |= type;
 
     filtered_ = true;
@@ -23,7 +23,7 @@ class ClsFilterData {
 
   void addIncludeFileType(const std::string &fileType);
 
-  void addExcludeType(int type) {
+  void addExcludeType(uint type) {
     excludeFlags_ |= type;
 
     filtered_ = true;
@@ -60,10 +60,10 @@ class ClsFilterData {
     filtered_ = true;
   }
 
-  void setNewer  (int newer  ) { newer_   = newer  ; filtered_ = true; }
-  void setOlder  (int older  ) { older_   = older  ; filtered_ = true; }
-  void setLarger (int larger ) { larger_  = larger ; filtered_ = true; }
-  void setSmaller(int smaller) { smaller_ = smaller; filtered_ = true; }
+  void setNewer  (int  newer  ) { newer_   = newer  ; filtered_ = true; }
+  void setOlder  (int  older  ) { older_   = older  ; filtered_ = true; }
+  void setLarger (long larger ) { larger_  = larger ; filtered_ = true; }
+  void setSmaller(long smaller) { smaller_ = smaller; filtered_ = true; }
 
   void setExec(const std::string &exec) { exec_ = exec; filtered_ = true; }
 
@@ -93,10 +93,10 @@ class ClsFilterData {
 
   bool only_user_ { false };
 
-  int newer_   { -1 };
-  int older_   { -1 };
-  int larger_  { -1 };
-  int smaller_ { -1 };
+  int  newer_   { -1 };
+  int  older_   { -1 };
+  long larger_  { -1 };
+  long smaller_ { -1 };
 
   std::string exec_;
 };

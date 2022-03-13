@@ -138,9 +138,9 @@ ClsFile::
 getSize()
 {
   if (! init())
-    return false;
+    return size_t(-1);
 
-  return stat_->st_size;
+  return size_t(stat_->st_size);
 }
 
 uint
@@ -148,7 +148,7 @@ ClsFile::
 getUid()
 {
   if (! init())
-    return false;
+    return 0;
 
   return stat_->st_uid;
 }
@@ -158,7 +158,7 @@ ClsFile::
 getGid()
 {
   if (! init())
-    return false;
+    return 0;
 
   return stat_->st_gid;
 }
@@ -240,7 +240,7 @@ getNLink()
   if (! init())
     return 0;
 
-  return stat_->st_nlink;
+  return uint(stat_->st_nlink);
 }
 
 uint
@@ -250,7 +250,7 @@ getDev()
   if (! init())
     return 0;
 
-  return stat_->st_dev;
+  return uint(stat_->st_dev);
 }
 
 uint
@@ -260,7 +260,7 @@ getRDev()
   if (! init())
     return 0;
 
-  return stat_->st_rdev;
+  return uint(stat_->st_rdev);
 }
 
 ulong
@@ -270,7 +270,7 @@ getNumBlocks()
   if (! init())
     return 0;
 
-  return stat_->st_blocks;
+  return ulong(stat_->st_blocks);
 }
 
 bool

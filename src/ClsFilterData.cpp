@@ -99,12 +99,12 @@ checkFile(Cls *cls, ClsFile *file) const
   //-----
 
   // if any match patterns it must match one
-  uint num_match_patterns = match_patterns_.size();
+  auto num_match_patterns = match_patterns_.size();
 
   if (num_match_patterns > 0) {
     bool rc = false;
 
-    for (uint i = 0; i < num_match_patterns; ++i) {
+    for (size_t i = 0; i < num_match_patterns; ++i) {
       if (match_patterns_[i]->compare(file->getName())) {
         rc = true;
         break;
@@ -118,9 +118,9 @@ checkFile(Cls *cls, ClsFile *file) const
   //-----
 
   // if any no-match patterns then fail if matches any
-  uint num_nomatch_patterns = nomatch_patterns_.size();
+  auto num_nomatch_patterns = nomatch_patterns_.size();
 
-  for (uint i = 0; i < num_nomatch_patterns; ++i) {
+  for (size_t i = 0; i < num_nomatch_patterns; ++i) {
     if (nomatch_patterns_[i]->compare(file->getName()))
       return false;
   }
@@ -129,7 +129,7 @@ checkFile(Cls *cls, ClsFile *file) const
 
   // if newer specified then fail if older
   if (newer_ >= 0) {
-    long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
+    long diff = static_cast<long>(cls->getCurrentTime()->diff(*file->getMTime()));
 
     long days = diff/SECONDS_PER_DAY;
 
@@ -141,7 +141,7 @@ checkFile(Cls *cls, ClsFile *file) const
 
   // if older specified then fail if newer
   if (older_ >= 0) {
-    long diff = (long) cls->getCurrentTime()->diff(*file->getMTime());
+    long diff = static_cast<long>(cls->getCurrentTime()->diff(*file->getMTime()));
 
     long days = diff/SECONDS_PER_DAY;
 
@@ -153,7 +153,7 @@ checkFile(Cls *cls, ClsFile *file) const
 
   // if larger specified then fail if smaller or equal
   if (! isDir && larger_ >= 0) {
-    if (file->getSize() <= (uint) larger_)
+    if (file->getSize() <= static_cast<uint>(larger_))
       return false;
   }
 
@@ -161,7 +161,7 @@ checkFile(Cls *cls, ClsFile *file) const
 
   // if smaller specified then fail if larger or equal
   if (! isDir && smaller_ >= 0) {
-    if (file->getSize() >= (uint) smaller_)
+    if (file->getSize() >= static_cast<uint>(smaller_))
       return false;
   }
 

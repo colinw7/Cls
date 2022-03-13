@@ -538,7 +538,7 @@ processArgs(int argc, char **argv)
             ClsFileType type = decodeTypeChar("exclude", exclude[j]);
 
             if (type != ClsFileType::NONE)
-              filterData_->addExcludeType((int) type);
+              filterData_->addExcludeType(static_cast<uint>(type));
           }
         }
         else if (arg == "include_type") {
@@ -567,7 +567,7 @@ processArgs(int argc, char **argv)
             ClsFileType type = decodeTypeChar("include", include[j]);
 
             if (type != ClsFileType::NONE)
-              filterData_->addIncludeType((int) type);
+              filterData_->addIncludeType(static_cast<uint>(type));
           }
         }
         else if (arg == "prefix") {
@@ -610,7 +610,7 @@ processArgs(int argc, char **argv)
             continue;
           }
 
-          filterData_->setLarger(atoi(argv[i]));
+          filterData_->setLarger(decodeSizeArg(argv[i]));
         }
         else if (arg == "smaller") {
           ++i;
@@ -620,7 +620,7 @@ processArgs(int argc, char **argv)
             continue;
           }
 
-          filterData_->setSmaller(atoi(argv[i]));
+          filterData_->setSmaller(decodeSizeArg(argv[i]));
         }
         else if (arg == "match") {
           ++i;
@@ -808,6 +808,31 @@ processArgs(int argc, char **argv)
   }
 }
 
+long
+Cls::
+decodeSizeArg(const std::string &arg) const
+{
+  auto string_to_size = [](const std::string &str) {
+    auto i = std::stoi(str);
+    if (i < 0) return long(-1);
+    return long(i);
+  };
+
+  auto len = arg.size();
+
+  if (len < 2)
+    return string_to_size(arg);
+
+  if      (arg[len - 1] == 'k')
+    return string_to_size(arg.substr(0, len - 1))*1024;
+  else if (arg[len - 1] == 'm')
+    return string_to_size(arg.substr(0, len - 1))*1024*1024;
+  else if (arg[len - 1] == 'g')
+    return string_to_size(arg.substr(0, len - 1))*1024*1024*1024;
+  else
+    return string_to_size(arg);
+}
+
 void
 Cls::
 setTestFlags(const std::string &str, bool names)
@@ -860,7 +885,7 @@ exec()
       if (isspace(c))
         c = ' ';
 
-      file_string += c;
+      file_string += char(c);
 
       c = fgetc(stdin);
     }
@@ -872,9 +897,9 @@ exec()
       static uint NUM_COLORS = 7;
 
       for (uint i = 0; i < NUM_COLORS; ++i) {
-        std::string color = colorToString((ClsColorType) i);
+        std::string color = colorToString(static_cast<ClsColorType>(i));
 
-        uint color_len = color.size();
+        auto color_len = color.size();
 
         auto pos = file_string.find(color);
 
@@ -943,9 +968,10 @@ exec()
 
   // run init command if specified
   if (exec_init_cmd_ != "") {
-    int status;
+    std::string res;
+    int         status;
 
-    runCommand(exec_init_cmd_, status);
+    runCommand(exec_init_cmd_, res, status);
   }
 
   //----
@@ -993,8 +1019,8 @@ exec()
   }
   else {
     // if single directory and no regular files then list directory
-    uint num_dfiles = dfiles.size();
-    uint num_rfiles = rfiles.size();
+    auto num_dfiles = dfiles.size();
+    auto num_rfiles = rfiles.size();
 
     if (num_dfiles == 1 && num_rfiles == 0) {
       listDir(dfiles[0]);
@@ -1010,9 +1036,10 @@ exec()
 
   // run term command if specified
   if (exec_term_cmd_ != "") {
-    int status;
+    std::string res;
+    int         status;
 
-    runCommand(exec_term_cmd_, status);
+    runCommand(exec_term_cmd_, res, status);
   }
 
   //---
@@ -1423,9 +1450,9 @@ listFile(ClsFile *file)
   list_data.uid    = file->getUid();
   list_data.gid    = file->getGid();
   list_data.ino    = file->getINode();
-  list_data.nlink  = file->getNLink();
-  list_data.dev    = file->getDev();
-  list_data.rdev   = file->getRDev();
+  list_data.nlink  = static_cast<int>(file->getNLink());
+  list_data.dev    = static_cast<int>(file->getDev());
+  list_data.rdev   = static_cast<int>(file->getRDev());
   list_data.blocks = file->getNumBlocks();
   list_data.mtime  = new CTime(*file->getMTime());
   list_data.ctime  = new CTime(*file->getCTime());
@@ -1482,7 +1509,7 @@ listFile(ClsFile *file)
   }
 
   if (list_data.type == 'l') {
-    int len = readlink(file->getName().c_str(), link_name, MAXPATHLEN);
+    auto len = readlink(file->getName().c_str(), link_name, MAXPATHLEN);
 
     if (len == -1)
       len = 0;
@@ -1588,7 +1615,7 @@ printListData(ClsData *list_data)
 
     std::string output_string;
 
-    uint len = lsFormat_.size();
+    auto len = lsFormat_.size();
 
     while (i < len) {
       if (lsFormat_[i] != '%' || i >= len - 1) {
@@ -1596,7 +1623,7 @@ printListData(ClsData *list_data)
         continue;
       }
 
-      int i1 = i;
+      auto i1 = i;
 
       ++i;
 
@@ -1714,12 +1741,27 @@ printListData(ClsData *list_data)
 
           break;
         }
+        // add fully specified filename
+        case 'F': {
+          if (field_width == 0 && max_len > 0)
+            field_width = max_len;
+
+          if (isHtml())
+            str = relative_dir1 + "/" + list_data->name;
+          else {
+            lstr = colorToString(list_data->color);
+            str  = relative_dir1 + "/" + list_data->name;
+            rstr = colorToString(ClsColorType::NORMAL);
+          }
+
+          break;
+        }
         // add gid
         case 'g': {
           if (field_width == 0)
             field_width = 8;
 
-          str = gidToString(list_data->gid);
+          str = gidToString(static_cast<int>(list_data->gid));
 
           break;
         }
@@ -1821,7 +1863,7 @@ printListData(ClsData *list_data)
           if (field_width == 0)
             field_width = 8;
 
-          str = uidToString(list_data->uid);
+          str = uidToString(static_cast<int>(list_data->uid));
 
           break;
         }
@@ -1887,7 +1929,7 @@ printListData(ClsData *list_data)
           output_string += str;
       }
       else {
-        for (uint k = i1; k < i; k++)
+        for (size_t k = i1; k < i; k++)
           output_string += lsFormat_[k];
       }
     }
@@ -1912,7 +1954,7 @@ printListData(ClsData *list_data)
         CStrUtil::printf("%4ld ", list_data->blocks);
 
       if (! isDataType()) {
-        char c = (char) list_data->type;
+        char c = char(list_data->type);
 
         output(std::string(&c, 1));
       }
@@ -1925,10 +1967,12 @@ printListData(ClsData *list_data)
         CStrUtil::printf(" %3d", list_data->nlink);
 
       if (! o_flag)
-        output(" " + CStrFmt::align(uidToString(list_data->uid), 8, CStrFmt::AlignType::LEFT));
+        output(" " + CStrFmt::align(uidToString(static_cast<int>(list_data->uid)),
+                                    8, CStrFmt::AlignType::LEFT));
 
       if (! g_flag)
-        output(" " + CStrFmt::align(gidToString(list_data->gid), 8, CStrFmt::AlignType::LEFT));
+        output(" " + CStrFmt::align(gidToString(static_cast<int>(list_data->gid)),
+                                    8, CStrFmt::AlignType::LEFT));
 
       if (list_data->type == 'b' || list_data->type == 'c')
         CStrUtil::printf(" %3d,%3d", major(list_data->rdev), minor(list_data->rdev));
@@ -1936,10 +1980,10 @@ printListData(ClsData *list_data)
         if      (M_flag) {
           size_t size;
 
-          double size1 = list_data->size/1024.0/1024.0;
+          double size1 = double(list_data->size)/1024.0/1024.0;
 
           if (size1 > 0.05)
-            CStrUtil::printf(" %4.1fM", list_data->size/1024.0/1024.0);
+            CStrUtil::printf(" %4.1fM", double(list_data->size)/1024.0/1024.0);
           else {
             size = list_data->size >> 10;
 
@@ -1959,9 +2003,9 @@ printListData(ClsData *list_data)
         }
         else {
 #if _FILE_OFFSET_BITS == 64
-          CStrUtil::printf(" %*lld", max_size_len, (long long) list_data->size);
+          CStrUtil::printf(" %*lld", max_size_len, static_cast<long long>(list_data->size));
 #else
-          CStrUtil::printf(" %*ld", max_size_len, (long) list_data->size);
+          CStrUtil::printf(" %*ld", max_size_len, static_cast<long>(list_data->size));
 #endif
         }
       }
@@ -1984,7 +2028,7 @@ printListData(ClsData *list_data)
       if (full_path)
         name = relative_dir1 + "/" + list_data->name;
 
-      uint len = name.size();
+      auto len = name.size();
 
       if (force_width > 0 && int(len) > force_width) {
         if (clip_left)
@@ -2026,12 +2070,12 @@ printListData(ClsData *list_data)
       outputLine("");
     }
     else if (C_flag || x_flag) {
-      uint len = list_data->name.size();
+      auto len = list_data->name.size();
 
       if (full_path)
         len += relative_dir1.size() + 1;
 
-      if (force_width == 0 || (int) len <= force_width) {
+      if (force_width == 0 || int(len) <= force_width) {
         if (full_path) {
           std::string relative_dir2 =
             relative_dir1 + "/" + list_data->name;
@@ -2061,7 +2105,7 @@ printListData(ClsData *list_data)
       }
       else {
         if (full_path) {
-          uint relative_dir1_len = relative_dir1.size();
+          auto relative_dir1_len = relative_dir1.size();
 
           if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
@@ -2080,7 +2124,7 @@ printListData(ClsData *list_data)
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
-              CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
+              CStrFmt::align(list_data->name, force_width - int(relative_dir1_len) - 2,
                              CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
@@ -2113,12 +2157,12 @@ printListData(ClsData *list_data)
       }
 
       if (int(len) < max_len) {
-        for (uint i = 0; i < max_len - len; ++i)
+        for (int i = 0; i < max_len - int(len); ++i)
           output(" ");
       }
     }
     else if (m_flag) {
-      uint len = list_data->name.size();
+      auto len = list_data->name.size();
 
       int list_pos1 = list_pos;
 
@@ -2134,7 +2178,7 @@ printListData(ClsData *list_data)
         outputLine("");
 
         list_pos  = 0;
-        list_pos1 = len;
+        list_pos1 = int(len);
       }
 
       if (list_pos > 0)
@@ -2154,9 +2198,9 @@ printListData(ClsData *list_data)
       list_pos = list_pos1;
     }
     else {
-      uint len = list_data->name.size();
+      auto len = list_data->name.size();
 
-      if (force_width == 0 || (int) len <= force_width) {
+      if (force_width == 0 || int(len) <= force_width) {
         if (full_path) {
           std::string relative_dir2 = relative_dir1 + "/" + list_data->name;
 
@@ -2185,7 +2229,7 @@ printListData(ClsData *list_data)
       }
       else {
         if (full_path) {
-          uint relative_dir1_len = relative_dir1.size();
+          auto relative_dir1_len = relative_dir1.size();
 
           if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
@@ -2205,7 +2249,7 @@ printListData(ClsData *list_data)
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
-              CStrFmt::align(list_data->name, force_width - relative_dir1_len - 2,
+              CStrFmt::align(list_data->name, force_width - int(relative_dir1_len) - 2,
                              CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
@@ -2252,10 +2296,10 @@ setMaxFilelen(FileArray &files)
     max_len = 0;
 
     for (const auto &file : files) {
-      uint len = file->getLinkName().size();
+      auto len = file->getLinkName().size();
 
-      if ((int) len > max_len)
-        max_len = len;
+      if (int(len) > max_len)
+        max_len = int(len);
     }
   }
   else
@@ -2273,12 +2317,12 @@ setMaxFilelen(FileArray &files)
   max_size = 0;
 
   for (const auto &file : files) {
-    size_t size = file->getSize();
+    auto size = file->getSize();
 
     max_size = std::max(max_size, size);
   }
 
-  max_size_len = uint(log10(max_size)) + 1;
+  max_size_len = uint(std::log10(double(max_size))) + 1;
 }
 
 void
@@ -2302,21 +2346,21 @@ setPerm(std::string &str, int perm, int type)
   else
     str += '-';
 
-  if (type == S_IRUSR && COSFile::stat_mode_is_uid_on_exec(perm)) {
+  if (type == S_IRUSR && COSFile::stat_mode_is_uid_on_exec(uint(perm))) {
     if (perm & S_IXOTH)
       str[2] = 's';
     else
       str[2] = 'S';
   }
 
-  if (type == S_IRGRP && COSFile::stat_mode_is_gid_on_exec(perm)) {
+  if (type == S_IRGRP && COSFile::stat_mode_is_gid_on_exec(uint(perm))) {
     if (perm & S_IXOTH)
       str[2] = 's';
     else
       str[2] = 'S';
   }
 
-  if (type == S_IROTH && COSFile::stat_mode_is_restrict_delete(perm)) {
+  if (type == S_IROTH && COSFile::stat_mode_is_restrict_delete(uint(perm))) {
     if (perm & S_IXOTH)
       str[2] = 't';
     else
@@ -2328,7 +2372,7 @@ std::string
 Cls::
 typeToString(int type)
 {
-  char c = (char) type;
+  char c = char(type);
 
   return std::string(&c, 1);
 }
@@ -2343,14 +2387,14 @@ sizeToString(ClsData *list_data)
     sprintf(size_string, "%d,%d", major(list_data->rdev), minor(list_data->rdev));
   else {
     if      (M_flag)
-      sprintf(size_string, "%.1fM", list_data->size/1024.0/1024.0);
+      sprintf(size_string, "%.1fM", double(list_data->size)/1024.0/1024.0);
     else if (k_flag)
       sprintf(size_string, "%ldK", list_data->size >> 10);
     else {
 #if _FILE_OFFSET_BITS == 64
-      sprintf(size_string, "%lld", (long long) list_data->size);
+      sprintf(size_string, "%lld", static_cast<long long>(list_data->size));
 #else
-      sprintf(size_string, "%ld", (long) list_data->size);
+      sprintf(size_string, "%ld", static_cast<long>(list_data->size));
 #endif
     }
   }
@@ -2363,7 +2407,7 @@ Cls::
 uidToString(int uid)
 {
   if (! n_flag)
-    return COSUser::getUserName(uid);
+    return COSUser::getUserName(uint(uid));
   else
     return CStrUtil::toString(uid);
 }
@@ -2373,23 +2417,23 @@ Cls::
 gidToString(int gid)
 {
   if (! n_flag)
-    return COSUser::getGroupName(gid);
+    return COSUser::getGroupName(uint(gid));
   else
     return CStrUtil::toString(gid);
 }
 
 std::string
 Cls::
-inodeToString(int inode)
+inodeToString(ulong inode)
 {
   return CStrUtil::toString(inode);
 }
 
 std::string
 Cls::
-blocksToString(int inode)
+blocksToString(ulong blocks)
 {
-  return CStrUtil::toString(inode);
+  return CStrUtil::toString(blocks);
 }
 
 std::string
@@ -2438,31 +2482,31 @@ operator()(ClsFile *file1, ClsFile *file2)
     mtime = true;
 
   if      (ctime) {
-    CTime *ctime1 = file1->getCTime();
-    CTime *ctime2 = file2->getCTime();
+    auto *ctime1 = file1->getCTime();
+    auto *ctime2 = file2->getCTime();
 
     if (ctime1 != 0 && ctime2 != 0)
-      cmp = (int) ctime2->diff(*ctime1);
+      cmp = static_cast<int>(ctime2->diff(*ctime1));
     else
-      cmp = ctime1 - ctime2;
+      cmp = static_cast<int>(ctime1 - ctime2);
   }
   else if (utime) {
-    CTime *atime1 = file1->getATime();
-    CTime *atime2 = file2->getATime();
+    auto *atime1 = file1->getATime();
+    auto *atime2 = file2->getATime();
 
     if (atime1 != 0 && atime2 != 0)
-      cmp = (int) atime2->diff(*atime1);
+      cmp = static_cast<int>(atime2->diff(*atime1));
     else
-      cmp = atime1 - atime2;
+      cmp = static_cast<int>(atime1 - atime2);
   }
   else if (mtime) {
-    CTime *mtime1 = file1->getMTime();
-    CTime *mtime2 = file2->getMTime();
+    auto *mtime1 = file1->getMTime();
+    auto *mtime2 = file2->getMTime();
 
     if (mtime1 != 0 && mtime2 != 0)
-      cmp = (int) mtime2->diff(*mtime1);
+      cmp = static_cast<int>(mtime2->diff(*mtime1));
     else
-      cmp = mtime1 - mtime2;
+      cmp = static_cast<int>(mtime1 - mtime2);
   }
   else {
     assert(false);
@@ -2478,7 +2522,7 @@ int
 ClsCompareSizes::
 operator()(ClsFile *file1, ClsFile *file2)
 {
-  int cmp = file2->getSize() - file1->getSize();
+  int cmp = static_cast<int>(file2->getSize() - file1->getSize());
 
   if (reverse)
     cmp = -cmp;
@@ -2552,13 +2596,13 @@ outputFiles(const FileArray &files)
 
   if (! filterData_->prefixes().empty()) {
     for (const auto &prefix : filterData_->prefixes()) {
-      std::size_t prefixLen = prefix.size();
+      auto prefixLen = prefix.size();
 
       for (const auto &file : files) {
         if (fileSet.find(file) != fileSet.end())
           continue;
 
-        std::size_t nameLen = file->getLinkName().size();
+        auto nameLen = file->getLinkName().size();
 
         if (nameLen >= prefixLen && file->getLinkName().substr(0, prefixLen) == prefix) {
           file->setLinkName(file->getLinkName().substr(prefixLen));
@@ -2639,22 +2683,22 @@ outputFiles1(const FileArray &files)
         files1.push_back(file);
     }
 
-    int columns = (list_max_pos + 1)/(max_len + 1);
+    uint columns = uint((list_max_pos + 1)/(max_len + 1));
 
     if (columns <= 0)
       columns = 1;
 
-    uint num_files1 = files1.size();
+    auto num_files1 = files1.size();
 
-    int rows = num_files1/columns;
+    uint rows = uint(num_files1/columns);
 
     if (num_files1 % columns != 0)
       rows++;
 
-    for (int i = 0; i < rows; ++i) {
+    for (uint i = 0; i < rows; ++i) {
       uint k = i;
 
-      for (int j = 0; j < columns; ++j) {
+      for (uint j = 0; j < columns; ++j) {
         if (k >= num_files1)
           break;
 
@@ -2768,14 +2812,14 @@ std::string
 Cls::
 encodeName(const std::string &name)
 {
-  uint len = name.size();
+  auto len = name.size();
 
   std::string name1;
 
   uint i = 0;
 
   if (no_path) {
-    int i1 = 0;
+    uint i1 = 0;
 
     while (i < len) {
       if (name[i] == '/')
@@ -2800,9 +2844,9 @@ encodeName(const std::string &name)
         int digit2 = (c - digit1*64)/8;
         int digit3 = c - digit1*64 - digit2*8;
 
-        name1 += digit1 + '0';
-        name1 += digit2 + '0';
-        name1 += digit3 + '0';
+        name1 += char(digit1 + '0');
+        name1 += char(digit2 + '0');
+        name1 += char(digit3 + '0');
       }
       else if (q_flag)
         name1 += '?';
@@ -2835,7 +2879,7 @@ decodeTypeChar(const std::string &opt, int c)
     case 'B': type = ClsFileType::BAD;     break;
     case 'S': type = ClsFileType::SPECIAL; break;
     default: {
-      std::cerr << "Invalid --" << opt << " type " << (char) c << "\n";
+      std::cerr << "Invalid --" << opt << " type " << char(c) << "\n";
       break;
     }
   }
@@ -2857,12 +2901,12 @@ enterDir(const std::string &dir)
 
   current_dir = CDir::getCurrent();
 
-  uint base_dir_len    = base_dir.size();
-  uint current_dir_len = current_dir.size();
+  auto base_dir_len    = base_dir.size();
+  auto current_dir_len = current_dir.size();
 
   if (current_dir_len >= base_dir_len &&
       current_dir.substr(0, base_dir_len) == base_dir) {
-    int offset = base_dir_len;
+    auto offset = base_dir_len;
 
     while (current_dir[offset] == '/')
       offset++;
@@ -2908,18 +2952,18 @@ execToString(const std::string &command)
 
   static std::string exec_string;
 
-  if (! COSProcess::executeCommand(command, exec_string, 0))
+  if (! COSProcess::executeCommand(command, exec_string, nullptr))
     return 0;
 
-  int len = exec_string.size();
+  auto len = exec_string.size();
 
-  for (int i = 0; i < len; ++i) {
+  for (size_t i = 0; i < len; ++i) {
     if (exec_string[i] == '\n')
       exec_string[i] = ' ';
   }
 
   // skip to first non-space
-  int i = 0;
+  size_t i = 0;
 
   while (i < len && isspace(exec_string[i]))
     ++i;
@@ -2940,7 +2984,7 @@ specialGlobMatch(const std::string &file, ClsColorType *color)
   static uint NUM_COLORS = 7;
 
   for (uint i = 0; i < NUM_COLORS; ++i) {
-    *color = (ClsColorType) i;
+    *color = static_cast<ClsColorType>(i);
 
     for (const auto &special_glob : special_globs[i]) {
       if (special_glob->compare(file))
@@ -2957,11 +3001,11 @@ execFile(ClsFile *file, const std::string &exec_cmd)
 {
   std::string exec_cmd1;
 
-  uint exec_cmd_len = exec_cmd.size();
+  auto exec_cmd_len = exec_cmd.size();
 
   // replace format characters with file data
-  auto pos1 = 0;
-  auto pos2 = exec_cmd.find('%');
+  size_t pos1 = 0;
+  auto   pos2 = exec_cmd.find('%');
 
   while (pos2 != std::string::npos) {
     exec_cmd1 += exec_cmd.substr(pos1, pos2 - pos1);
@@ -3009,19 +3053,19 @@ execFile(ClsFile *file, const std::string &exec_cmd)
       ++pos2;
 
     pos1 = pos2;
-    pos2 = exec_cmd.find(pos1, '%');
+    pos2 = exec_cmd.find('%', pos1);
   }
 
   exec_cmd1 += exec_cmd.substr(pos1);
 
   ///---
 
-  int len1 = exec_cmd1.size();
+  auto len1 = exec_cmd1.size();
 
   // echo shortcut
   if      (len1 > 5 && exec_cmd1.substr(0, 5) == "echo ") {
     // skip echo and space after
-    int i = 5;
+    size_t i = 5;
 
     while (i < len1 && isspace(exec_cmd1[i]))
       ++i;
@@ -3038,7 +3082,7 @@ execFile(ClsFile *file, const std::string &exec_cmd)
   // rm shortcut
   else if (len1 > 3 && exec_cmd1.substr(0, 3) == "rm ") {
     // skip rm and space after
-    int i = 3;
+    size_t i = 3;
 
     while (i < len1 && isspace(exec_cmd1[i]))
       ++i;
@@ -3061,10 +3105,21 @@ execFile(ClsFile *file, const std::string &exec_cmd)
   }
   // run generic command
   else {
-    int status;
+    bool silent = false;
 
-    if (! runCommand(exec_cmd1, status))
+    if (exec_cmd1[0] == '#') {
+      exec_cmd1 = exec_cmd1.substr();
+      silent    = true;
+    }
+
+    std::string res;
+    int         status;
+
+    if (! runCommand(exec_cmd1, res, status))
       return 1;
+
+    if (! silent)
+      std::cout << res;
 
     return status;
   }
@@ -3072,7 +3127,7 @@ execFile(ClsFile *file, const std::string &exec_cmd)
 
 bool
 Cls::
-runCommand(const std::string &cmd, int &status)
+runCommand(const std::string &cmd, std::string &result, int &status)
 {
   if (isPreview()) {
     std::cout << cmd << "\n";
@@ -3083,7 +3138,7 @@ runCommand(const std::string &cmd, int &status)
 
   COSProcess::CommandState state;
 
-  if (! COSProcess::executeCommand(cmd.c_str(), &state)) {
+  if (! COSProcess::executeCommand(cmd, result, &state)) {
     if (! isSilent())
       std::cerr << "exec failed for " << cmd << "\n";
     return false;

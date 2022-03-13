@@ -151,8 +151,8 @@ class Cls {
   std::string   sizeToString(ClsData *);
   std::string   uidToString(int uid);
   std::string   gidToString(int gid);
-  std::string   inodeToString(int);
-  std::string   blocksToString(int);
+  std::string   inodeToString(ulong);
+  std::string   blocksToString(ulong);
   std::string   timeToString(CTime *time);
   std::string   colorToString(ClsColorType color);
   void          splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles);
@@ -168,7 +168,7 @@ class Cls {
   std::string   execToString(const std::string &command);
   bool          specialGlobMatch(const std::string &file, ClsColorType *color);
   int           execFile(ClsFile *file, const std::string &command);
-  bool          runCommand(const std::string &cmd, int &status);
+  bool          runCommand(const std::string &cmd, std::string &res, int &status);
   void          outputTypeEscape(ClsData *list_data);
   void          outputTypeEscape(ClsData *list_data, const std::string &str);
   void          outputTypeEscape(CFileType type, const std::string &str);
@@ -180,6 +180,9 @@ class Cls {
   void outputColored(ClsColorType color, const std::string &str);
   void outputLine(const std::string &str);
   void output(const std::string &str);
+
+ private:
+  long decodeSizeArg(const std::string &arg) const;
 
  private:
   typedef std::vector<std::string> DirStack;
