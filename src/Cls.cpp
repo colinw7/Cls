@@ -109,6 +109,7 @@ init()
   d_flag = false;
   f_flag = false;
   g_flag = false;
+  h_flag = false;
   i_flag = false;
   k_flag = false;
   l_flag = false;
@@ -125,6 +126,7 @@ init()
   A_flag = false;
   C_flag = false;
   F_flag = false;
+  G_flag = false;
   L_flag = false;
   M_flag = false;
   R_flag = false;
@@ -241,6 +243,9 @@ processArgs(int argc, char **argv)
               C_flag = false;
               T_flag = false;
               break;
+            case 'h':
+              h_flag = true;
+              break;
             case 'i':
               i_flag = true;
               break;
@@ -321,6 +326,12 @@ processArgs(int argc, char **argv)
               break;
             case 'F':
               F_flag = true;
+              break;
+            case 'G':
+              G_flag = true;
+              break;
+            case 'K':
+              K_flag = true;
               break;
             case 'L':
               L_flag = true;
@@ -1976,39 +1987,8 @@ printListData(ClsData *list_data)
 
       if (list_data->type == 'b' || list_data->type == 'c')
         CStrUtil::printf(" %3d,%3d", major(list_data->rdev), minor(list_data->rdev));
-      else {
-        if      (M_flag) {
-          size_t size;
-
-          double size1 = double(list_data->size)/1024.0/1024.0;
-
-          if (size1 > 0.05)
-            CStrUtil::printf(" %4.1fM", double(list_data->size)/1024.0/1024.0);
-          else {
-            size = list_data->size >> 10;
-
-            if (size > 0)
-              CStrUtil::printf(" %4ldK", size);
-            else
-              CStrUtil::printf(" %5ld", list_data->size);
-          }
-        }
-        else if (k_flag) {
-          size_t size = list_data->size >> 10;
-
-          if (size > 0)
-            CStrUtil::printf(" %5ldK", size);
-          else
-            CStrUtil::printf(" %6ld", list_data->size);
-        }
-        else {
-#if _FILE_OFFSET_BITS == 64
-          CStrUtil::printf(" %*lld", max_size_len, static_cast<long long>(list_data->size));
-#else
-          CStrUtil::printf(" %*ld", max_size_len, static_cast<long>(list_data->size));
-#endif
-        }
-      }
+      else
+        formatSize(list_data->size);
 
       std::string tstr;
 
@@ -2386,9 +2366,11 @@ sizeToString(ClsData *list_data)
   if (list_data->type == 'b' || list_data->type == 'c')
     sprintf(size_string, "%d,%d", major(list_data->rdev), minor(list_data->rdev));
   else {
-    if      (M_flag)
+    if      (G_flag)
+      sprintf(size_string, "%.1fG", double(list_data->size)/1024.0/1024.0/1024.0);
+    else if (M_flag)
       sprintf(size_string, "%.1fM", double(list_data->size)/1024.0/1024.0);
-    else if (k_flag)
+    else if (k_flag || K_flag)
       sprintf(size_string, "%ldK", list_data->size >> 10);
     else {
 #if _FILE_OFFSET_BITS == 64
@@ -2400,6 +2382,71 @@ sizeToString(ClsData *list_data)
   }
 
   return size_string;
+}
+
+void
+Cls::
+formatSize(size_t size)
+{
+  if      (h_flag) {
+    if      (size > 1024*1024*1024)
+      CStrUtil::printf(" %4.1fG", double(size)/1024.0/1024.0/1024.0);
+    else if (size > 1024*1024)
+      CStrUtil::printf(" %4.1fM", double(size)/1024.0/1024.0);
+    else if (size > 1024)
+      CStrUtil::printf(" %4.1fK", double(size)/1024.0);
+    else
+      CStrUtil::printf(" %5ld", size);
+  }
+  else if (G_flag) {
+    double sizeG = double(size)/1024.0/1024.0/1024.0;
+
+    if (sizeG > 0.05)
+      CStrUtil::printf(" %4.1fG", double(size)/1024.0/1024.0/1024.0);
+    else {
+      double sizeM = double(size)/1024.0/1024.0;
+
+      if (sizeM > 0.05)
+        CStrUtil::printf(" %4.1fM", double(size)/1024.0/1024.0);
+      else {
+        auto sizeK = size >> 10; // divide 1024
+
+        if (sizeK > 0)
+          CStrUtil::printf(" %4ldK", sizeK);
+        else
+          CStrUtil::printf(" %5ld", size);
+      }
+    }
+  }
+  else if (M_flag) {
+    double sizeM = double(size)/1024.0/1024.0;
+
+    if (sizeM > 0.05)
+      CStrUtil::printf(" %4.1fM", double(size)/1024.0/1024.0);
+    else {
+      auto sizeK = size >> 10; // divide 1024
+
+      if (sizeK > 0)
+        CStrUtil::printf(" %4ldK", sizeK);
+      else
+        CStrUtil::printf(" %5ld", size);
+    }
+  }
+  else if (k_flag || K_flag) {
+    size_t sizeK = size >> 10;
+
+    if (sizeK > 0)
+      CStrUtil::printf(" %5ldK", sizeK);
+    else
+      CStrUtil::printf(" %6ld", size);
+  }
+  else {
+#if _FILE_OFFSET_BITS == 64
+    CStrUtil::printf(" %*lld", max_size_len, static_cast<long long>(size));
+#else
+    CStrUtil::printf(" %*ld", max_size_len, static_cast<long>(size));
+#endif
+  }
 }
 
 std::string

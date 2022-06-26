@@ -128,52 +128,64 @@ class Cls {
   bool isUseColors() const { return useColors_; }
   void setUseColors(bool b) { useColors_ = b; }
 
-  void          init();
-  void          processArgs(int argc, char **argv);
-  bool          exec();
-  bool          testFiles(const FileArray &files, FileSet &fileSet);
-  bool          listDirEntry(ClsFile *file);
-  bool          listDir(ClsFile *file);
-  bool          listCurrentDir(ClsFile *file);
-  bool          getDirFiles(ClsFile *file, FileArray &files);
-  void          addDirFiles(const std::string &name, FileArray &files);
+  void init();
+
+  void processArgs(int argc, char **argv);
+
+  bool exec();
+
+  bool testFiles(const FileArray &files, FileSet &fileSet);
+
+  bool listDirEntry(ClsFile *file);
+  bool listDir(ClsFile *file);
+  bool listCurrentDir(ClsFile *file);
+
+  bool getDirFiles(ClsFile *file, FileArray &files);
+  void addDirFiles(const std::string &name, FileArray &files);
+
   ClsFilterType filterFile(ClsFile *file);
-  bool          listDirFiles(FileArray &files);
-  void          recurseFiles(FileArray &files);
-  void          freeDirFiles(FileArray &files);
-  bool          listFile(ClsFile *file);
-  bool          isBadFile(ClsFile *file);
-  bool          isBadLink(ClsFile *file);
-  void          printListData(ClsData *file);
-  void          setMaxFilelen(FileArray &files);
-  void          setPerm(std::string &str, int, int);
-  std::string   typeToString(int);
-  std::string   sizeToString(ClsData *);
-  std::string   uidToString(int uid);
-  std::string   gidToString(int gid);
-  std::string   inodeToString(ulong);
-  std::string   blocksToString(ulong);
-  std::string   timeToString(CTime *time);
-  std::string   colorToString(ClsColorType color);
-  void          splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles);
-  void          sortFiles(FileArray &files);
-  bool          outputFiles(const FileArray &files);
-  bool          outputFiles1(const FileArray &files);
-  std::string   encodeName(const std::string &name);
-  void          getScreenSize();
-  int           getTermCols();
-  ClsFileType   decodeTypeChar(const std::string &opt, int c);
-  bool          enterDir(const std::string &dir);
-  void          leaveDir();
-  std::string   execToString(const std::string &command);
-  bool          specialGlobMatch(const std::string &file, ClsColorType *color);
-  int           execFile(ClsFile *file, const std::string &command);
-  bool          runCommand(const std::string &cmd, std::string &res, int &status);
-  void          outputTypeEscape(ClsData *list_data);
-  void          outputTypeEscape(ClsData *list_data, const std::string &str);
-  void          outputTypeEscape(CFileType type, const std::string &str);
-  CFileType     getDataType(ClsFile *file);
-  std::string   getDataTypeStr(ClsFile *file);
+
+  bool listDirFiles(FileArray &files);
+  void recurseFiles(FileArray &files);
+  void freeDirFiles(FileArray &files);
+  bool listFile(ClsFile *file);
+  bool isBadFile(ClsFile *file);
+  bool isBadLink(ClsFile *file);
+  void printListData(ClsData *file);
+  void setMaxFilelen(FileArray &files);
+  void setPerm(std::string &str, int, int);
+
+  std::string typeToString(int);
+
+  std::string sizeToString(ClsData *);
+  void        formatSize(size_t size);
+
+  std::string uidToString(int uid);
+  std::string gidToString(int gid);
+  std::string inodeToString(ulong);
+  std::string blocksToString(ulong);
+  std::string timeToString(CTime *time);
+  std::string colorToString(ClsColorType color);
+
+  void        splitFiles(const FileArray &files, FileArray &dfiles, FileArray &rfiles);
+  void        sortFiles(FileArray &files);
+  bool        outputFiles(const FileArray &files);
+  bool        outputFiles1(const FileArray &files);
+  std::string encodeName(const std::string &name);
+  void        getScreenSize();
+  int         getTermCols();
+  ClsFileType decodeTypeChar(const std::string &opt, int c);
+  bool        enterDir(const std::string &dir);
+  void        leaveDir();
+  std::string execToString(const std::string &command);
+  bool        specialGlobMatch(const std::string &file, ClsColorType *color);
+  int         execFile(ClsFile *file, const std::string &command);
+  bool        runCommand(const std::string &cmd, std::string &res, int &status);
+  void        outputTypeEscape(ClsData *list_data);
+  void        outputTypeEscape(ClsData *list_data, const std::string &str);
+  void        outputTypeEscape(CFileType type, const std::string &str);
+  CFileType   getDataType(ClsFile *file);
+  std::string getDataTypeStr(ClsFile *file);
 
   void outputHtmlClipped(const std::string &str1, const std::string &str2);
   void outputClipped(ClsColorType color, const std::string &str);
@@ -194,6 +206,7 @@ class Cls {
   bool               d_flag { false };
   bool               f_flag { false };
   bool               g_flag { false };
+  bool               h_flag { false };
   bool               i_flag { false };
   bool               k_flag { false };
   bool               l_flag { false };
@@ -210,6 +223,8 @@ class Cls {
   bool               A_flag { false };
   bool               C_flag { false };
   bool               F_flag { false };
+  bool               G_flag { false };
+  bool               K_flag { false };
   bool               L_flag { false };
   bool               M_flag { false };
   bool               R_flag { false };
