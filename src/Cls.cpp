@@ -35,8 +35,8 @@
 
 class ClsCompareNames {
  public:
-  ClsCompareNames(bool nocase, bool reverse, bool locale) :
-   nocase(nocase), reverse(reverse), locale(locale) {
+  ClsCompareNames(bool nocase_, bool reverse_, bool locale_) :
+   nocase(nocase_), reverse(reverse_), locale(locale_) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
@@ -51,8 +51,8 @@ class ClsCompareNames {
 
 class ClsCompareTimes {
  public:
-  ClsCompareTimes(bool ctime, bool utime, bool mtime, bool reverse) :
-   ctime(ctime), utime(utime), mtime(mtime), reverse(reverse) {
+  ClsCompareTimes(bool ctime_, bool utime_, bool mtime_, bool reverse_) :
+   ctime(ctime_), utime(utime_), mtime(mtime_), reverse(reverse_) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
@@ -68,8 +68,8 @@ class ClsCompareTimes {
 
 class ClsCompareSizes {
  public:
-  explicit ClsCompareSizes(bool reverse) :
-   reverse(reverse) {
+  explicit ClsCompareSizes(bool reverse_) :
+   reverse(reverse_) {
   }
 
   int operator()(ClsFile *file1, ClsFile *file2);
@@ -171,8 +171,8 @@ init()
 
   lsFormat_ = "";
 
-  max_len  = -1;
-  max_size = 0;
+  max_len_  = -1;
+  max_size_ = 0;
 
   if (! COSTerm::getCharSize(&screen_rows, &screen_cols)) {
     CEnvInst.get("COLUMNS", screen_cols);
@@ -1643,10 +1643,10 @@ printListData(ClsData *list_data)
       if (lsFormat_[i] == '-' || lsFormat_[i] == '+')
         justify = lsFormat_[i++];
 
-      int field_width = 0;
+      uint field_width = 0;
 
       while (i < len && isdigit(lsFormat_[i]))
-        field_width = 10*field_width + (lsFormat_[i++] - '0');
+        field_width = 10*field_width + uint(lsFormat_[i++] - '0');
 
       std::string lstr, str, rstr;
       bool        force = false;
@@ -1739,8 +1739,8 @@ printListData(ClsData *list_data)
         }
         // add filename
         case 'f': {
-          if (field_width == 0 && max_len > 0)
-            field_width = max_len;
+          if (field_width == 0 && max_len_ > 0)
+            field_width = uint(max_len_);
 
           if (isHtml())
             str = list_data->name;
@@ -1754,8 +1754,8 @@ printListData(ClsData *list_data)
         }
         // add fully specified filename
         case 'F': {
-          if (field_width == 0 && max_len > 0)
-            field_width = max_len;
+          if (field_width == 0 && max_len_ > 0)
+            field_width = uint(max_len_);
 
           if (isHtml())
             str = relative_dir1 + "/" + list_data->name;
@@ -2010,12 +2010,12 @@ printListData(ClsData *list_data)
 
       auto len = name.size();
 
-      if (force_width > 0 && int(len) > force_width) {
+      if (force_width > 0 && len > uint(force_width)) {
         if (clip_left)
-          name = "<" + CStrFmt::align(name, force_width - 1, CStrFmt::AlignType::LEFT, ' ',
+          name = "<" + CStrFmt::align(name, uint(force_width - 1), CStrFmt::AlignType::LEFT, ' ',
                                       CStrFmt::ClipType::LEFT);
         else
-          name = CStrFmt::align(name, force_width - 1, CStrFmt::AlignType::LEFT, ' ',
+          name = CStrFmt::align(name, uint(force_width - 1), CStrFmt::AlignType::LEFT, ' ',
                                 CStrFmt::ClipType::RIGHT) + ">";
       }
 
@@ -2089,7 +2089,7 @@ printListData(ClsData *list_data)
 
           if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
-              CStrFmt::align(relative_dir1, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+              CStrFmt::align(relative_dir1, uint(force_width - 1), CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
@@ -2104,7 +2104,7 @@ printListData(ClsData *list_data)
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
-              CStrFmt::align(list_data->name, force_width - int(relative_dir1_len) - 2,
+              CStrFmt::align(list_data->name, uint(force_width - int(relative_dir1_len) - 2),
                              CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
@@ -2121,7 +2121,7 @@ printListData(ClsData *list_data)
         }
         else {
           std::string relative_dir2 =
-            CStrFmt::align(list_data->name, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+            CStrFmt::align(list_data->name, uint(force_width - 1), CStrFmt::AlignType::RIGHT, ' ',
                            (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
           if (isHtml()) {
@@ -2136,8 +2136,8 @@ printListData(ClsData *list_data)
         }
       }
 
-      if (int(len) < max_len) {
-        for (int i = 0; i < max_len - int(len); ++i)
+      if (max_len_ > 0 && len < uint(max_len_)) {
+        for (uint i = 0; i < uint(max_len_) - len; ++i)
           output(" ");
       }
     }
@@ -2149,7 +2149,7 @@ printListData(ClsData *list_data)
       if (list_pos > 0)
         list_pos1 += 2;
 
-      list_pos1 += len;
+      list_pos1 += int(len);
 
       if (list_pos1 >= list_max_pos) {
         if (isHtml())
@@ -2213,7 +2213,7 @@ printListData(ClsData *list_data)
 
           if (int(relative_dir1_len) + 1 <= force_width) {
             std::string relative_dir2 =
-              CStrFmt::align(relative_dir1, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+              CStrFmt::align(relative_dir1, uint(force_width - 1), CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
             if (isHtml()) {
@@ -2229,7 +2229,7 @@ printListData(ClsData *list_data)
           }
           else {
             std::string relative_dir2 = relative_dir1 + "/" +
-              CStrFmt::align(list_data->name, force_width - int(relative_dir1_len) - 2,
+              CStrFmt::align(list_data->name, uint(force_width - int(relative_dir1_len) - 2),
                              CStrFmt::AlignType::RIGHT, ' ',
                              (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
@@ -2247,7 +2247,7 @@ printListData(ClsData *list_data)
         }
         else {
           std::string relative_dir2 =
-            CStrFmt::align(list_data->name, force_width - 1, CStrFmt::AlignType::RIGHT, ' ',
+            CStrFmt::align(list_data->name, uint(force_width - 1), CStrFmt::AlignType::RIGHT, ' ',
                            (clip_left ? CStrFmt::ClipType::LEFT : CStrFmt::ClipType::RIGHT));
 
           if (isHtml()) {
@@ -2273,36 +2273,36 @@ Cls::
 setMaxFilelen(FileArray &files)
 {
   if (force_width == 0) {
-    max_len = 0;
+    max_len_ = 0;
 
     for (const auto &file : files) {
       auto len = file->getLinkName().size();
 
-      if (int(len) > max_len)
-        max_len = int(len);
+      if (int(len) > max_len_)
+        max_len_ = int(len);
     }
   }
   else
-    max_len = force_width;
+    max_len_ = force_width;
 
   if (i_flag && ! l_flag)
-    max_len += 8;
+    max_len_ += 8;
 
   if (s_flag && ! l_flag)
-    max_len += 5;
+    max_len_ += 5;
 
   if (F_flag || p_flag)
-    max_len++;
+    max_len_++;
 
-  max_size = 0;
+  max_size_ = 0;
 
   for (const auto &file : files) {
     auto size = file->getSize();
 
-    max_size = std::max(max_size, size);
+    max_size_ = std::max(max_size_, size);
   }
 
-  max_size_len = uint(std::log10(double(max_size))) + 1;
+  max_size_len_ = uint(std::log10(double(max_size_))) + 1;
 }
 
 void
@@ -2442,9 +2442,9 @@ formatSize(size_t size)
   }
   else {
 #if _FILE_OFFSET_BITS == 64
-    CStrUtil::printf(" %*lld", max_size_len, static_cast<long long>(size));
+    CStrUtil::printf(" %*lld", max_size_len_, static_cast<long long>(size));
 #else
-    CStrUtil::printf(" %*ld", max_size_len, static_cast<long>(size));
+    CStrUtil::printf(" %*ld", max_size_len_, static_cast<long>(size));
 #endif
   }
 }
@@ -2730,7 +2730,7 @@ outputFiles1(const FileArray &files)
         files1.push_back(file);
     }
 
-    uint columns = uint((list_max_pos + 1)/(max_len + 1));
+    uint columns = uint((list_max_pos + 1)/(max_len_ + 1));
 
     if (columns <= 0)
       columns = 1;
@@ -2772,7 +2772,7 @@ outputFiles1(const FileArray &files)
     int columns;
 
     if (num_columns == 0) {
-      columns = (list_max_pos + 1)/(max_len + 1);
+      columns = (list_max_pos + 1)/(max_len_ + 1);
 
       if (columns <= 0)
         columns = 1;

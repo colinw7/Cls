@@ -267,11 +267,11 @@ class Cls {
 
   std::string        lsFormat_;
 
-  int                max_len { -1 };
-  size_t             max_size { 0 };
-  uint               max_size_len { 1 };
+  int                max_len_      { -1 };
+  size_t             max_size_     { 0 };
+  uint               max_size_len_ { 1 };
 
-  int                list_pos { 0 };
+  int                list_pos     { 0 };
   int                list_max_pos { 99 };
 
   int                screen_rows { 60 };
