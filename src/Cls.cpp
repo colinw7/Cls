@@ -27,6 +27,7 @@
 #include <sys/sysmacros.h>
 
 #include <algorithm>
+#include <cassert>
 
 #ifndef major
 # define major(rdev) ((rdev) >> 8)
@@ -2532,7 +2533,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     auto *ctime1 = file1->getCTime();
     auto *ctime2 = file2->getCTime();
 
-    if (ctime1 != 0 && ctime2 != 0)
+    if (ctime1 != nullptr && ctime2 != nullptr)
       cmp = static_cast<int>(ctime2->diff(*ctime1));
     else
       cmp = static_cast<int>(ctime1 - ctime2);
@@ -2541,7 +2542,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     auto *atime1 = file1->getATime();
     auto *atime2 = file2->getATime();
 
-    if (atime1 != 0 && atime2 != 0)
+    if (atime1 != nullptr && atime2 != nullptr)
       cmp = static_cast<int>(atime2->diff(*atime1));
     else
       cmp = static_cast<int>(atime1 - atime2);
@@ -2550,7 +2551,7 @@ operator()(ClsFile *file1, ClsFile *file2)
     auto *mtime1 = file1->getMTime();
     auto *mtime2 = file2->getMTime();
 
-    if (mtime1 != 0 && mtime2 != 0)
+    if (mtime1 != nullptr && mtime2 != nullptr)
       cmp = static_cast<int>(mtime2->diff(*mtime1));
     else
       cmp = static_cast<int>(mtime1 - mtime2);
@@ -3000,7 +3001,7 @@ execToString(const std::string &command)
   static std::string exec_string;
 
   if (! COSProcess::executeCommand(command, exec_string, nullptr))
-    return 0;
+    return "";
 
   auto len = exec_string.size();
 
