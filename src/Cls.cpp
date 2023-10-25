@@ -772,14 +772,14 @@ processArgs(int argc, char **argv)
           std::cerr << "%d : add date\n";
           std::cerr << "%e : exec command with file\n";
           std::cerr << "%f : add filename\n";
-          std::cerr << "%g : add gid\n";
+          std::cerr << "%g : add group name\n";
           std::cerr << "%i : add inode number\n";
           std::cerr << "%l : add link number\n";
           std::cerr << "%n : add number of links\n";
           std::cerr << "%p : add permission\n";
           std::cerr << "%s : add size\n";
           std::cerr << "%t : add type\n";
-          std::cerr << "%u : add uid\n";
+          std::cerr << "%u : add user name\n";
           std::cerr << "%D : add relative directory\n";
           std::cerr << "%G : add gid\n";
           std::cerr << "%L : add link indicator\n";
@@ -803,8 +803,13 @@ processArgs(int argc, char **argv)
         else if (arg == "help_exec") {
           std::cerr << "%d : add directory\n";
           std::cerr << "%f : add filename\n";
+          std::cerr << "%g : add group name\n";
           std::cerr << "%l : add link name\n";
           std::cerr << "%p : add full path\n";
+          std::cerr << "%P : add permissions\n";
+          std::cerr << "%s : add size\n";
+          std::cerr << "%t : add change (c), modify (m) or access (a) time\n";
+          std::cerr << "%u : add user name\n";
           exit(0);
         }
         else {
@@ -1441,14 +1446,7 @@ listFile(ClsFile *file)
 
   list_data.file = file;
 
-  if      (file->isFIFO   ()) list_data.type = 'p';
-  else if (file->isChar   ()) list_data.type = 'c';
-  else if (file->isDir    ()) list_data.type = 'd';
-  else if (file->isBlock  ()) list_data.type = 'b';
-  else if (file->isRegular()) list_data.type = '-';
-  else if (file->isLink   ()) list_data.type = 'l';
-  else if (file->isSocket ()) list_data.type = 's';
-  else                        list_data.type = '?';
+  list_data.type = typeChar(file);
 
   int u_perm = file->getUPerm();
   int g_perm = file->getGPerm();
@@ -1551,9 +1549,23 @@ listFile(ClsFile *file)
   return true;
 }
 
+char
+Cls::
+typeChar(ClsFile *file) const
+{
+  if      (file->isFIFO   ()) return 'p';
+  else if (file->isChar   ()) return 'c';
+  else if (file->isDir    ()) return 'd';
+  else if (file->isBlock  ()) return 'b';
+  else if (file->isRegular()) return '-';
+  else if (file->isLink   ()) return 'l';
+  else if (file->isSocket ()) return 's';
+  else                        return '?';
+}
+
 bool
 Cls::
-isBadFile(ClsFile *file)
+isBadFile(ClsFile *file) const
 {
   int u_perm = file->getUPerm();
   int g_perm = file->getGPerm();
@@ -1613,7 +1625,7 @@ isBadFile(ClsFile *file)
 
 bool
 Cls::
-isBadLink(ClsFile *file)
+isBadLink(ClsFile *file) const
 {
   return (file->isLink() && ! file->hasLinkStat());
 }
@@ -2360,26 +2372,37 @@ typeToString(int type)
 
 std::string
 Cls::
-sizeToString(ClsData *list_data)
+sizeToString(ClsData *list_data) const
+{
+  if (list_data->type == 'b' || list_data->type == 'c') {
+    static char size_string[64];
+
+    sprintf(size_string, "%d,%d", major(list_data->rdev), minor(list_data->rdev));
+
+    return size_string;
+  }
+
+  return sizeToString(list_data->size);
+}
+
+std::string
+Cls::
+sizeToString(size_t size) const
 {
   static char size_string[64];
 
-  if (list_data->type == 'b' || list_data->type == 'c')
-    sprintf(size_string, "%d,%d", major(list_data->rdev), minor(list_data->rdev));
+  if      (G_flag)
+    sprintf(size_string, "%.1fG", double(size)/1024.0/1024.0/1024.0);
+  else if (M_flag)
+    sprintf(size_string, "%.1fM", double(size)/1024.0/1024.0);
+  else if (k_flag || K_flag)
+    sprintf(size_string, "%ldK", size >> 10);
   else {
-    if      (G_flag)
-      sprintf(size_string, "%.1fG", double(list_data->size)/1024.0/1024.0/1024.0);
-    else if (M_flag)
-      sprintf(size_string, "%.1fM", double(list_data->size)/1024.0/1024.0);
-    else if (k_flag || K_flag)
-      sprintf(size_string, "%ldK", list_data->size >> 10);
-    else {
 #if _FILE_OFFSET_BITS == 64
-      sprintf(size_string, "%lld", static_cast<long long>(list_data->size));
+    sprintf(size_string, "%lld", static_cast<long long>(size));
 #else
-      sprintf(size_string, "%ld", static_cast<long>(list_data->size));
+    sprintf(size_string, "%ld", static_cast<long>(size));
 #endif
-    }
   }
 
   return size_string;
@@ -2387,7 +2410,7 @@ sizeToString(ClsData *list_data)
 
 void
 Cls::
-formatSize(size_t size)
+formatSize(size_t size) const
 {
   if      (h_flag) {
     if      (size > 1024*1024*1024)
@@ -3056,38 +3079,103 @@ execFile(ClsFile *file, const std::string &exec_cmd)
   auto   pos2 = exec_cmd.find('%');
 
   while (pos2 != std::string::npos) {
-    exec_cmd1 += exec_cmd.substr(pos1, pos2 - pos1);
+    exec_cmd1 += exec_cmd.substr(pos1, pos2 - pos1); // before %
 
     ++pos2;
 
+    std::string dstr;
+
+    while (pos2 < exec_cmd_len && isdigit(exec_cmd[pos2]))
+      dstr += exec_cmd[pos2++];
+
+    int format_width = (dstr.size() ? std::stoi(dstr) : -1);
+
     char code = exec_cmd[pos2];
+
+    auto addStr = [&](const std::string &str) {
+      auto str1 = str;
+
+      if (format_width > 0) {
+        while (int(str1.size()) < format_width)
+          str1 = " " + str1;
+      }
+
+      exec_cmd1 += str1;
+    };
 
     switch (code) {
       // add directory
       case 'd': {
-        exec_cmd1 += current_dir;
+        addStr(current_dir);
         break;
       }
       // add filename
       case 'f': {
-        exec_cmd1 += file->getName();
+        addStr(file->getName());
+        break;
+      }
+      // add group name
+      case 'g': {
+        addStr(gidToString(file->getGid()));
         break;
       }
       // add link name
       case 'l': {
-        exec_cmd1 += file->getLinkName();
+        addStr(file->getLinkName());
         break;
       }
       // add full path
       case 'p': {
-        exec_cmd1 += current_dir;
-        exec_cmd1 += "/";
-        exec_cmd1 += file->getName();
+        addStr(current_dir + "/" + file->getName());
+        break;
+      }
+      // permissions
+      case 'P': {
+        std::string str, str1;;
+        setPerm(str, file->getUPerm(), S_IRUSR); str1 += str;
+        setPerm(str, file->getGPerm(), S_IRGRP); str1 += str;
+        setPerm(str, file->getOPerm(), S_IROTH); str1 += str;
+        addStr(str1);
+        break;
+      }
+      // add link name
+      case 's': {
+        addStr(sizeToString(file->getSize()));
+        break;
+      }
+      case 't': {
+        char code1 = '\0';
+
+        if (pos2 < exec_cmd_len)
+          code1 = exec_cmd[++pos2];
+
+        if      (code1 == 'a')
+          addStr(timeToString(file->getATime()));
+        else if (code1 == 'c')
+          addStr(timeToString(file->getCTime()));
+        else if (code1 == 'm')
+          addStr(timeToString(file->getMTime()));
+        else {
+          --pos2;
+          addStr(timeToString(file->getMTime()));
+        }
+
+        break;
+      }
+      // add type
+      case 'T': {
+        auto c = typeChar(file);
+        addStr(std::string(&c, 1));
+        break;
+      }
+      // add user name
+      case 'u': {
+        addStr(uidToString(file->getUid()));
         break;
       }
       // add % char
       case '%': {
-        exec_cmd1 += "%";
+        exec_cmd1 += dstr + "%";
         break;
       }
       // handle bad format
