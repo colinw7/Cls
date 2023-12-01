@@ -3129,6 +3129,11 @@ execFile(ClsFile *file, const std::string &exec_cmd)
         addStr(current_dir + "/" + file->getName());
         break;
       }
+      // add quoted full path
+      case 'q': {
+        addStr("\"" + current_dir + "/" + file->getName() + "\"");
+        break;
+      }
       // permissions
       case 'P': {
         std::string str, str1;;
@@ -3180,7 +3185,7 @@ execFile(ClsFile *file, const std::string &exec_cmd)
       }
       // handle bad format
       default: {
-        std::cerr << "Bad exec % code\n";
+        std::cerr << "Bad exec code %" + std::string(&code, 1) + "\n";
         break;
       }
     }
