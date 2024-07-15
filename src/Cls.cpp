@@ -432,7 +432,7 @@ processArgs(int argc, char **argv)
             continue;
           }
 
-          CGlob *glob = new CGlob(argv[i]);
+          auto *glob = new CGlob(argv[i]);
 
           special_globs[int(color)].push_back(glob);
         }
@@ -818,7 +818,7 @@ processArgs(int argc, char **argv)
       }
     }
     else {
-      ClsFile *file = new ClsFile(this, L_flag, argv[i]);
+      auto *file = new ClsFile(this, L_flag, argv[i]);
 
       files_.push_back(file);
     }
@@ -939,7 +939,7 @@ exec()
     CStrUtil::addWords(file_string, words);
 
     for (const auto &word : words) {
-      ClsFile *file = new ClsFile(this, L_flag, word);
+      auto *file = new ClsFile(this, L_flag, word);
 
       files_.push_back(file);
     }
@@ -1008,7 +1008,7 @@ exec()
   FileArray dfiles, rfiles;
 
   if (files_.empty()) {
-    ClsFile *file = new ClsFile(this, L_flag, ".", ".");
+    auto *file = new ClsFile(this, L_flag, ".", ".");
 
     dfiles.push_back(file);
   }
@@ -1281,7 +1281,7 @@ void
 Cls::
 addDirFiles(const std::string &name, FileArray &files)
 {
-  ClsFile *file = new ClsFile(this, L_flag, name, encodeName(name));
+  auto *file = new ClsFile(this, L_flag, name, encodeName(name));
 
   ClsFilterType filter = filterFile(file);
 
