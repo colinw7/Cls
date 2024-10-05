@@ -203,8 +203,10 @@ void
 Cls::
 processArgs(int argc, char **argv)
 {
+  bool allowOptions = true;
+
   for (int i = 1; i < argc; ++i) {
-    if (argv[i][0] == '-') {
+    if (allowOptions && argv[i][0] == '-') {
       if (argv[i][1] != '-') {
         if (argv[i][1] == '\0')
           readFiles_ = true;
@@ -391,6 +393,11 @@ processArgs(int argc, char **argv)
         }
       }
       else {
+        if (argv[i][2] == '\0') {
+          allowOptions = false;
+          continue;
+        }
+
         std::string arg = std::string(&argv[i][2]);
 
         if      (arg == "format") {
