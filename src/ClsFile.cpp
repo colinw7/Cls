@@ -10,6 +10,14 @@
 #include <cstring>
 #include <iostream>
 
+#include <sys/param.h>
+
+ClsFile::
+ClsFile(Cls *ls, bool useLink, const std::string &name, const std::string &lname) :
+ ls_(ls), useLink_(useLink), name_(name), lname_(lname)
+{
+}
+
 bool
 ClsFile::
 exists()
@@ -367,4 +375,26 @@ getLStat()
   }
 
   return true;
+}
+
+const std::string &
+ClsFile::
+getFullLinkName()
+{
+  if (! linkRead_) {
+    static char link_name[MAXPATHLEN + 1];
+
+    auto len = readlink(getName().c_str(), link_name, MAXPATHLEN);
+
+    if (len == -1)
+      len = 0;
+
+    link_name[len] = '\0';
+
+    fullLinkName_ = link_name;
+
+    linkRead_ = true;
+  }
+
+  return fullLinkName_;
 }

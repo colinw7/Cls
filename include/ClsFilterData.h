@@ -36,6 +36,9 @@ class ClsFilterData {
   void addMatch  (const std::string &pattern);
   void addNoMatch(const std::string &pattern);
 
+  void addLinkMatch  (const std::string &pattern);
+  void addNoLinkMatch(const std::string &pattern);
+
   void setShowZero(bool show) {
     show_zero_ = show;
 
@@ -87,6 +90,8 @@ class ClsFilterData {
   Prefixes    prefixes_;
   PatternList match_patterns_;
   PatternList nomatch_patterns_;
+  PatternList link_match_patterns_;
+  PatternList link_nomatch_patterns_;
 
   bool show_zero_     { true };
   bool show_non_zero_ { true };

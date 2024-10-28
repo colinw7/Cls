@@ -1,5 +1,6 @@
 #include <CTime.h>
 #include <cstring>
+#include <time.h>
 
 struct CTimeData {
   time_t     t;
@@ -11,7 +12,7 @@ CTime()
 {
   data_ = new CTimeData();
 
-  data_->t = time((time_t *) 0);
+  data_->t = time(static_cast<time_t *>(nullptr));
 
   init();
 }

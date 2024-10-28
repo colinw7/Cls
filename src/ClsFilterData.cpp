@@ -56,6 +56,24 @@ addNoMatch(const std::string &pattern)
   filtered_ = true;
 }
 
+void
+ClsFilterData::
+addLinkMatch(const std::string &pattern)
+{
+  link_match_patterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
+void
+ClsFilterData::
+addNoLinkMatch(const std::string &pattern)
+{
+  link_nomatch_patterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
 bool
 ClsFilterData::
 checkFile(Cls *cls, ClsFile *file) const
@@ -104,8 +122,10 @@ checkFile(Cls *cls, ClsFile *file) const
   if (num_match_patterns > 0) {
     bool rc = false;
 
+    const auto &name = file->getName();
+
     for (size_t i = 0; i < num_match_patterns; ++i) {
-      if (match_patterns_[i]->compare(file->getName())) {
+      if (match_patterns_[i]->compare(name)) {
         rc = true;
         break;
       }
@@ -120,9 +140,50 @@ checkFile(Cls *cls, ClsFile *file) const
   // if any no-match patterns then fail if matches any
   auto num_nomatch_patterns = nomatch_patterns_.size();
 
-  for (size_t i = 0; i < num_nomatch_patterns; ++i) {
-    if (nomatch_patterns_[i]->compare(file->getName()))
-      return false;
+  if (num_nomatch_patterns > 0) {
+    const auto &name = file->getName();
+
+    for (size_t i = 0; i < num_nomatch_patterns; ++i) {
+      if (nomatch_patterns_[i]->compare(name))
+        return false;
+    }
+  }
+
+  //-----
+
+  if (file->isLink()) {
+    // if any link match patterns it must match one
+    auto num_link_match_patterns = link_match_patterns_.size();
+
+    if (num_link_match_patterns > 0) {
+      bool rc = false;
+
+      const auto &linkName = file->getFullLinkName();
+
+      for (size_t i = 0; i < num_link_match_patterns; ++i) {
+        if (link_match_patterns_[i]->compare(linkName)) {
+          rc = true;
+          break;
+        }
+      }
+
+      if (! rc)
+        return false;
+    }
+
+    //-----
+
+    // if any no-match link patterns then fail if matches any
+    auto num_link_nomatch_patterns = link_nomatch_patterns_.size();
+
+    if (num_link_nomatch_patterns > 0) {
+      const auto &linkName = file->getFullLinkName();
+
+      for (size_t i = 0; i < num_link_nomatch_patterns; ++i) {
+        if (link_nomatch_patterns_[i]->compare(linkName))
+          return false;
+      }
+    }
   }
 
   //-----

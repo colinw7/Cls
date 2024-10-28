@@ -9,9 +9,7 @@ class CTime;
 
 class ClsFile {
  public:
-  ClsFile(Cls *ls, bool useLink, const std::string &name, const std::string &lname = "") :
-   ls_(ls), useLink_(useLink), name_(name), lname_(lname) {
-  }
+  ClsFile(Cls *ls, bool useLink, const std::string &name, const std::string &lname="");
 
   const std::string &getName() const { return name_; }
   void setName(const std::string &name) { name_ = name; }
@@ -56,6 +54,8 @@ class ClsFile {
 
   bool hasLinkStat();
 
+  const std::string &getFullLinkName();
+
  private:
   bool init();
   bool getFStat();
@@ -65,8 +65,10 @@ class ClsFile {
   Cls*         ls_          { nullptr };
   bool         initialized_ { false };
   bool         useLink_     { false };
+  bool         linkRead_    { false };
   std::string  name_;
   std::string  lname_;
+  std::string  fullLinkName_;
   struct stat *stat_        { nullptr };
   struct stat *fstat_       { nullptr };
   struct stat *lstat_       { nullptr };

@@ -23,7 +23,6 @@
 #include <cstring>
 #include <cmath>
 #include <unistd.h>
-#include <sys/param.h>
 #include <sys/sysmacros.h>
 
 #include <algorithm>
@@ -641,35 +640,41 @@ processArgs(int argc, char **argv)
 
           filterData_->setSmaller(decodeSizeArg(argv[i]));
         }
-        else if (arg == "match") {
+        else if (arg == "match" || arg == "nomatch") {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --match\n";
+            std::cerr << "Missing argument for --" << arg << "\n";
             continue;
           }
 
           std::vector<std::string> words;
-
           CStrUtil::addWords(argv[i], words);
 
-          for (const auto &word : words)
-            filterData_->addMatch(word);
+          for (const auto &word : words) {
+            if (arg == "match")
+              filterData_->addMatch(word);
+            else
+              filterData_->addNoMatch(word);
+          }
         }
-        else if (arg == "nomatch") {
+        else if (arg == "linkmatch" || arg == "nolinkmatch") {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --nomatch\n";
+            std::cerr << "Missing argument for --" << arg << "\n";
             continue;
           }
 
           std::vector<std::string> words;
-
           CStrUtil::addWords(argv[i], words);
 
-          for (const auto &word : words)
-            filterData_->addNoMatch(word);
+          for (const auto &word : words) {
+            if (arg == "linkmatch")
+              filterData_->addLinkMatch(word);
+            else
+              filterData_->addNoLinkMatch(word);
+          }
         }
         else if (arg == "full_path" || arg == "fullpath") {
           full_path = true;
@@ -1425,8 +1430,6 @@ bool
 Cls::
 listFile(ClsFile *file)
 {
-  static char link_name[MAXPATHLEN + 1];
-
   if (isBadNames() || isRenameBad()) {
     if (CFileUtil::isBadFilename(file->getName())) {
       std::string pathName = (full_path ? current_dir : relative_dir) + "/" + file->getName();
@@ -1526,14 +1529,7 @@ listFile(ClsFile *file)
   }
 
   if (list_data.type == 'l') {
-    auto len = readlink(file->getName().c_str(), link_name, MAXPATHLEN);
-
-    if (len == -1)
-      len = 0;
-
-    link_name[len] = '\0';
-
-    list_data.link_name = link_name;
+    list_data.link_name = file->getFullLinkName();
 
     if      (file->isDir())
       list_data.link_color = ClsColorType::DIRECTORY;
