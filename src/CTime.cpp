@@ -158,7 +158,8 @@ getLsTime(bool show_secs)
 
   CTime current_time;
 
-  if (current_time.getYear() == getYear()) {
+  if      (current_time.getYear() == getYear()) {
+    // same year within six months, skip year
     if (current_time.getYearDay() - getYearDay() < 183) {
       if (! show_secs)
         str = format("%h %e %H:%M");
@@ -166,9 +167,10 @@ getLsTime(bool show_secs)
         str = format("%h %e %H:%M:%S");
     }
     else
-      str = format("%h %e  %Y");
+      str = format("%h %e  %Y"); // extra space to align with time (time=HH::MM, year=YYYY)
   }
   else if (current_time.getYear() == getYear() + 1) {
+    // prev year within six months, skip year
     if (current_time.getYearDay() + (365 - getYearDay()) < 183) {
       if (! show_secs)
         str = format("%h %e %H:%M");

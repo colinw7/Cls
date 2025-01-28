@@ -685,11 +685,8 @@ processArgs(int argc, char **argv)
         else if (arg == "show_secs") {
           show_secs = true;
         }
-        else if (arg == "case") {
-          nocase = false;
-        }
-        else if (arg == "nocase") {
-          nocase = true;
+        else if (arg == "case" || arg == "nocase") {
+          nocase = (arg == "nocase");
         }
         else if (arg == "locale") {
           locale = true;
@@ -697,35 +694,20 @@ processArgs(int argc, char **argv)
         else if (arg == "nolocale") {
           locale = false;
         }
-        else if (arg == "exec_init") {
+        else if (arg == "exec_init" || arg == "exec_term" || arg == "exec") {
           ++i;
 
           if (i >= argc) {
-            std::cerr << "Missing argument for --exec_init\n";
+            std::cerr << "Missing argument for --" << arg << "\n";
             continue;
           }
 
-          exec_init_cmd_ = argv[i];
-        }
-        else if (arg == "exec_term") {
-          ++i;
-
-          if (i >= argc) {
-            std::cerr << "Missing argument for --exec_term\n";
-            continue;
-          }
-
-          exec_term_cmd_ = argv[i];
-        }
-        else if (arg == "exec") {
-          ++i;
-
-          if (i >= argc) {
-            std::cerr << "Missing argument for --exec\n";
-            continue;
-          }
-
-          exec_cmd_ = argv[i];
+          if      (arg == "exec_init")
+            exec_init_cmd_ = argv[i];
+          else if (arg == "exec_term")
+            exec_term_cmd_ = argv[i];
+          else
+            exec_cmd_ = argv[i];
         }
         else if (arg == "filter") {
           ++i;
@@ -3247,6 +3229,32 @@ execFile(ClsFile *file, const std::string &exec_cmd)
 
     return true;
   }
+#if 0
+  // touch shortcut
+  else if (len1 > 5 && exec_cmd1.substr(0, 5) == "touch ") {
+    // skip rm and space after
+    size_t i = 5;
+
+    while (i < len1 && isspace(exec_cmd1[i]))
+      ++i;
+
+    std::string args = exec_cmd1.substr(i);
+
+    if (isPreview()) {
+      std::cout << "touch " << args << "\n";
+    }
+    else {
+      int rc = utimensat(0, args.c_str(), tspec); // TODO
+
+      if (rc != 0) {
+        std::cerr << "touch failed for " << args << "\n";
+        return false;
+      }
+    }
+
+    return true;
+  }
+#endif
   // run generic command
   else {
     bool silent = false;

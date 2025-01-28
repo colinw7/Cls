@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 
+#include <unistd.h>
 #include <sys/param.h>
 
 ClsFile::
