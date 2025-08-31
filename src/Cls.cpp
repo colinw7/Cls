@@ -147,6 +147,7 @@ init()
   full_path       = false;
   no_path         = false;
   show_secs       = false;
+  rel_time        = false;
   nocase          = false;
   locale          = true;
   exec_init_cmd_  = "";
@@ -684,6 +685,9 @@ processArgs(int argc, char **argv)
         }
         else if (arg == "show_secs") {
           show_secs = true;
+        }
+        else if (arg == "rel_time") {
+          rel_time = true;
         }
         else if (arg == "case" || arg == "nocase") {
           nocase = (arg == "nocase");
@@ -2496,7 +2500,10 @@ std::string
 Cls::
 timeToString(CTime *time)
 {
-  return time->getLsTime(show_secs);
+  if (rel_time)
+    return time->getRelTime();
+  else
+    return time->getLsTime(show_secs);
 }
 
 std::string

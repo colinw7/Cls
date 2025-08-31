@@ -28,6 +28,8 @@ class CTime {
 
   std::string getLsTime(bool show_secs=false);
 
+  std::string getRelTime();
+
  private:
   void init();
   void initTm();

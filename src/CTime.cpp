@@ -185,3 +185,53 @@ getLsTime(bool show_secs)
 
   return str;
 }
+
+std::string
+CTime::
+getRelTime()
+{
+  CTime current_time;
+
+  int y1 =              getYear();
+  int y2 = current_time.getYear();
+
+  if (y1 == y2) {
+    int m1 =              getMonth();
+    int m2 = current_time.getMonth();
+
+    if (m1 == m2) {
+      int d1 =              getMonthDay();
+      int d2 = current_time.getMonthDay();
+
+      if (d1 == d2) {
+        int H1 =              getHour();
+        int H2 = current_time.getHour();
+
+        if (H1 == H2) {
+          int M1 =              getMin();
+          int M2 = current_time.getMin();
+
+          if (M1 == M2) {
+            int S1 =              getSec();
+            int S2 = current_time.getSec();
+
+            if (S1 == S2)
+              return "now";
+            else
+              return std::to_string(S2 - S1) + " secs ago";
+          }
+          else
+            return std::to_string(M2 - M1) + " mins ago";
+        }
+        else
+          return std::to_string(H2 - H1) + "  hrs ago";
+      }
+      else
+        return std::to_string(d2 - d1) + " days ago";
+    }
+    else
+      return std::to_string(m2 - m1) + " mths ago";
+  }
+  else
+    return std::to_string(y2 - y1) + "  yrs ago";
+}

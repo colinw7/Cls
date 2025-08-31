@@ -248,6 +248,7 @@ class Cls {
   bool               full_path { false };
   bool               no_path { false };
   bool               show_secs { false };
+  bool               rel_time { false };
   bool               nocase { false };
   bool               locale { true };
   std::string        exec_init_cmd_;
