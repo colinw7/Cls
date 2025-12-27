@@ -659,6 +659,24 @@ processArgs(int argc, char **argv)
               filterData_->addNoMatch(word);
           }
         }
+        else if (arg == "dirmatch" || arg == "nodirmatch") {
+          ++i;
+
+          if (i >= argc) {
+            std::cerr << "Missing argument for --" << arg << "\n";
+            continue;
+          }
+
+          std::vector<std::string> words;
+          CStrUtil::addWords(argv[i], words);
+
+          for (const auto &word : words) {
+            if (arg == "dirmatch")
+              filterData_->addDirMatch(word);
+            else
+              filterData_->addNoDirMatch(word);
+          }
+        }
         else if (arg == "linkmatch" || arg == "nolinkmatch") {
           ++i;
 
@@ -1335,8 +1353,10 @@ filterFile(ClsFile *file)
     return ClsFilterType::IN;
 
   // if filter doesn't not allow file but directory and allow process children
-  if (R_flag && file->isDir())
-    return ClsFilterType::OUT_DIR;
+  if (R_flag && file->isDir()) {
+    if (filterData_->checkDirFile(this, file))
+      return ClsFilterType::OUT_DIR;
+  }
 
   return ClsFilterType::OUT;
 }

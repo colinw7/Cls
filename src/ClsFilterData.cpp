@@ -42,7 +42,7 @@ void
 ClsFilterData::
 addMatch(const std::string &pattern)
 {
-  match_patterns_.push_back(new CGlob(pattern));
+  matchPatterns_.push_back(new CGlob(pattern));
 
   filtered_ = true;
 }
@@ -51,7 +51,25 @@ void
 ClsFilterData::
 addNoMatch(const std::string &pattern)
 {
-  nomatch_patterns_.push_back(new CGlob(pattern));
+  noMatchPatterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
+void
+ClsFilterData::
+addDirMatch(const std::string &pattern)
+{
+  dirMatchPatterns_.push_back(new CGlob(pattern));
+
+  filtered_ = true;
+}
+
+void
+ClsFilterData::
+addNoDirMatch(const std::string &pattern)
+{
+  dirNoMatchPatterns_.push_back(new CGlob(pattern));
 
   filtered_ = true;
 }
@@ -60,7 +78,7 @@ void
 ClsFilterData::
 addLinkMatch(const std::string &pattern)
 {
-  link_match_patterns_.push_back(new CGlob(pattern));
+  linkMatchPatterns_.push_back(new CGlob(pattern));
 
   filtered_ = true;
 }
@@ -69,7 +87,7 @@ void
 ClsFilterData::
 addNoLinkMatch(const std::string &pattern)
 {
-  link_nomatch_patterns_.push_back(new CGlob(pattern));
+  linkNoMatchPatterns_.push_back(new CGlob(pattern));
 
   filtered_ = true;
 }
@@ -117,15 +135,15 @@ checkFile(Cls *cls, ClsFile *file) const
   //-----
 
   // if any match patterns it must match one
-  auto num_match_patterns = match_patterns_.size();
+  auto num_matchPatterns = matchPatterns_.size();
 
-  if (num_match_patterns > 0) {
+  if (num_matchPatterns > 0) {
     bool rc = false;
 
     const auto &name = file->getName();
 
-    for (size_t i = 0; i < num_match_patterns; ++i) {
-      if (match_patterns_[i]->compare(name)) {
+    for (size_t i = 0; i < num_matchPatterns; ++i) {
+      if (matchPatterns_[i]->compare(name)) {
         rc = true;
         break;
       }
@@ -138,52 +156,29 @@ checkFile(Cls *cls, ClsFile *file) const
   //-----
 
   // if any no-match patterns then fail if matches any
-  auto num_nomatch_patterns = nomatch_patterns_.size();
+  auto numNoMatchPatterns = noMatchPatterns_.size();
 
-  if (num_nomatch_patterns > 0) {
+  if (numNoMatchPatterns > 0) {
     const auto &name = file->getName();
 
-    for (size_t i = 0; i < num_nomatch_patterns; ++i) {
-      if (nomatch_patterns_[i]->compare(name))
+    for (size_t i = 0; i < numNoMatchPatterns; ++i) {
+      if (noMatchPatterns_[i]->compare(name))
         return false;
     }
   }
 
   //-----
 
+  if (isDir) {
+    if (! checkDirFile(cls, file))
+      return false;
+  }
+
+  //-----
+
   if (file->isLink()) {
-    // if any link match patterns it must match one
-    auto num_link_match_patterns = link_match_patterns_.size();
-
-    if (num_link_match_patterns > 0) {
-      bool rc = false;
-
-      const auto &linkName = file->getFullLinkName();
-
-      for (size_t i = 0; i < num_link_match_patterns; ++i) {
-        if (link_match_patterns_[i]->compare(linkName)) {
-          rc = true;
-          break;
-        }
-      }
-
-      if (! rc)
-        return false;
-    }
-
-    //-----
-
-    // if any no-match link patterns then fail if matches any
-    auto num_link_nomatch_patterns = link_nomatch_patterns_.size();
-
-    if (num_link_nomatch_patterns > 0) {
-      const auto &linkName = file->getFullLinkName();
-
-      for (size_t i = 0; i < num_link_nomatch_patterns; ++i) {
-        if (link_nomatch_patterns_[i]->compare(linkName))
-          return false;
-      }
-    }
+    if (! checkLinkFile(cls, file))
+      return false;
   }
 
   //-----
@@ -235,6 +230,90 @@ checkFile(Cls *cls, ClsFile *file) const
     if (rc)
       return false;
   }
+
+  return true;
+}
+
+bool
+ClsFilterData::
+checkDirFile(Cls *, ClsFile *file) const
+{
+  // if any dir match patterns it must match one
+  auto numDirMatchPatterns = dirMatchPatterns_.size();
+
+  if (numDirMatchPatterns > 0) {
+    bool rc = false;
+
+    const auto &dirName = file->getName();
+
+    for (size_t i = 0; i < numDirMatchPatterns; ++i) {
+      if (dirMatchPatterns_[i]->compare(dirName)) {
+        rc = true;
+        break;
+      }
+    }
+
+    if (! rc)
+      return false;
+  }
+
+  //-----
+
+  // if any no-match dir patterns then fail if matches any
+  auto numDirNoMatchPatterns = dirNoMatchPatterns_.size();
+
+  if (numDirNoMatchPatterns > 0) {
+    const auto &dirName = file->getName();
+
+    for (size_t i = 0; i < numDirNoMatchPatterns; ++i) {
+      if (dirNoMatchPatterns_[i]->compare(dirName))
+        return false;
+    }
+  }
+
+  //-----
+
+  return true;
+}
+
+bool
+ClsFilterData::
+checkLinkFile(Cls *, ClsFile *file) const
+{
+  // if any link match patterns it must match one
+  auto numLinkMatchPatterns = linkMatchPatterns_.size();
+
+  if (numLinkMatchPatterns > 0) {
+    bool rc = false;
+
+    const auto &linkName = file->getFullLinkName();
+
+    for (size_t i = 0; i < numLinkMatchPatterns; ++i) {
+      if (linkMatchPatterns_[i]->compare(linkName)) {
+        rc = true;
+        break;
+      }
+    }
+
+    if (! rc)
+      return false;
+  }
+
+  //-----
+
+  // if any no-match link patterns then fail if matches any
+  auto numLinkNoMatchPatterns = linkNoMatchPatterns_.size();
+
+  if (numLinkNoMatchPatterns > 0) {
+    const auto &linkName = file->getFullLinkName();
+
+    for (size_t i = 0; i < numLinkNoMatchPatterns; ++i) {
+      if (linkNoMatchPatterns_[i]->compare(linkName))
+        return false;
+    }
+  }
+
+  //-----
 
   return true;
 }

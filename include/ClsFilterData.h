@@ -36,6 +36,9 @@ class ClsFilterData {
   void addMatch  (const std::string &pattern);
   void addNoMatch(const std::string &pattern);
 
+  void addDirMatch  (const std::string &pattern);
+  void addNoDirMatch(const std::string &pattern);
+
   void addLinkMatch  (const std::string &pattern);
   void addNoLinkMatch(const std::string &pattern);
 
@@ -72,6 +75,9 @@ class ClsFilterData {
 
   bool checkFile(Cls *cls, ClsFile *file) const;
 
+  bool checkDirFile (Cls *cls, ClsFile *file) const;
+  bool checkLinkFile(Cls *cls, ClsFile *file) const;
+
   const Prefixes &prefixes() const { return prefixes_; }
 
  private:
@@ -88,10 +94,13 @@ class ClsFilterData {
   uint        excludeFlags_ { 0 };
   PatternList excludeFileTypes_;
   Prefixes    prefixes_;
-  PatternList match_patterns_;
-  PatternList nomatch_patterns_;
-  PatternList link_match_patterns_;
-  PatternList link_nomatch_patterns_;
+
+  PatternList matchPatterns_;
+  PatternList noMatchPatterns_;
+  PatternList dirMatchPatterns_;
+  PatternList dirNoMatchPatterns_;
+  PatternList linkMatchPatterns_;
+  PatternList linkNoMatchPatterns_;
 
   bool show_zero_     { true };
   bool show_non_zero_ { true };

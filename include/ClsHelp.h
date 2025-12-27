@@ -23,6 +23,10 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--smaller <bytes>]\n\
    [--match <pattern>]\n\
    [--nomatch <pattern>]\n\
+   [--dirmatch <pattern>]\n\
+   [--nodirmatch <pattern>]\n\
+   [--linkmatch <pattern>]\n\
+   [--nolinkmatch <pattern>]\n\
    [--full_path/--fullpath]\n\
    [--no_path/--nopath]\n\
    [--show_secs]\n\
