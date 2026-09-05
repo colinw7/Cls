@@ -29,6 +29,7 @@ class ClsFile {
   bool isUserExecutable();
 
   bool isElf();
+  bool isImage();
 
   size_t getSize();
 

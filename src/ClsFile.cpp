@@ -142,6 +142,18 @@ isElf()
   return (! isLink() && CFileUtil::isELF(&file) != CFILE_TYPE_NONE);
 }
 
+bool
+ClsFile::
+isImage()
+{
+  if (! init())
+    return false;
+
+  CFile file(name_);
+
+  return (! isLink() && CFileUtil::getImageType(&file) != CFILE_TYPE_NONE);
+}
+
 size_t
 ClsFile::
 getSize()

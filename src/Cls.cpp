@@ -814,6 +814,7 @@ processArgs(int argc, char **argv)
           std::cerr << "X: ELF\n";
           std::cerr << "B: BAD\n";
           std::cerr << "S: SPECIAL\n";
+          std::cerr << "I: Image\n";
           exit(0);
         }
         else if (arg == "help_exec") {
@@ -893,9 +894,10 @@ setTestFlags(const std::string &str, bool names)
     // w : writable
     else if (str[i] == 'x') testFlags_ |= uint(ClsFileType::EXEC);
 
+    else if (str[i] == 'X') testFlags_ |= uint(ClsFileType::ELF);
     else if (str[i] == 'B') testFlags_ |= uint(ClsFileType::BAD);
-    else if (str[i] == 'E') testFlags_ |= uint(ClsFileType::ELF);
     else if (str[i] == 'G') testFlags_ |= uint(ClsFileType::SPECIAL); // glob special
+    else if (str[i] == 'I') testFlags_ |= uint(ClsFileType::IMAGE);
 
     else {
       std::cerr << "Invalid test flag '" << str[i] << "'\n";
@@ -2961,6 +2963,7 @@ decodeTypeChar(const std::string &opt, int c)
     case 'X': type = ClsFileType::ELF;     break;
     case 'B': type = ClsFileType::BAD;     break;
     case 'S': type = ClsFileType::SPECIAL; break;
+    case 'I': type = ClsFileType::IMAGE;   break;
     default: {
       std::cerr << "Invalid --" << opt << " type " << char(c) << "\n";
       break;

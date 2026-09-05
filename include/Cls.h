@@ -22,7 +22,8 @@ enum class ClsFileType {
   BAD     = (1<<8),
   SPECIAL = (1<<9),
   ELF     = (1<<10),
-  EXISTS  = (1<<11)
+  EXISTS  = (1<<11),
+  IMAGE   = (1<<11)
 };
 
 enum class ClsFilterType {

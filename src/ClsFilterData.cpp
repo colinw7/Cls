@@ -340,6 +340,9 @@ checkIncludeFile(Cls *cls, ClsFile *file) const
   if ((includeFlags_ & int(ClsFileType::ELF)) && file->isElf())
     return true;
 
+  if ((includeFlags_ & int(ClsFileType::IMAGE)) && file->isImage())
+    return true;
+
   if ((includeFlags_ & int(ClsFileType::BAD)) &&
       (cls->isBadFile(file) || ! file->hasLinkStat()))
     return true;
@@ -381,6 +384,9 @@ checkExcludeFile(Cls *cls, ClsFile *file) const
     return true;
 
   if ((excludeFlags_ & int(ClsFileType::ELF)) && file->isElf())
+    return true;
+
+  if ((excludeFlags_ & int(ClsFileType::IMAGE)) && file->isImage())
     return true;
 
   if ((excludeFlags_ & int(ClsFileType::BAD)) &&

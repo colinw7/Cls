@@ -12,9 +12,12 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--bad|--my_bad|--nobad]\n\
    [--zero|--nonzero]\n\
    [--width <width>]\n\
+   [--clip_left]\n\
    [--screen_cols <cols>]\n\
-   [--sort {name,time,size,extension}]\n\
+   [--sort {none,name,time,size,extension}]\n\
+   [--exclude_type <type>]\n\
    [--excl/ude <file_flags>]\n\
+   [--include_type <type>]\n\
    [--incl/ude <file_flags>]\n\
    [--prefix <prefix>]\n\
    [--newer <days>]\n\
@@ -30,19 +33,24 @@ ls [-abcdfgiklmnopqrstuxzACFLMNRSXZ123456789?]\n\
    [--full_path/--fullpath]\n\
    [--no_path/--nopath]\n\
    [--show_secs]\n\
+   [--rel_time]\n\
+   [--locale]\n\
+   [--nolocale]\n\
    [--case|--nocase]\n\
    [--exec_init <cmd>]\n\
    [--exec_term <cmd>]\n\
    [--exec <cmd>]\n\
    [--filter <exec>]\n\
-   [--test <flags>]\n\
+   [--test <flags>|--testf <flags>]\n\
    [--quiet]\n\
    [--html]\n\
    [--type_escape|--no_type_escape]\n\
    [--datatype|--data_type]\n\
    [--bad_names]\n\
+   [--rename_bad]\n\
+   [--preview]\n\
    [--silent]\n\
-   [--h/elp]\n\
+   [--h|--help]\n\
    [--help_format]\n\
    [--help_file_type]\n\
    [--help_exec]\n\
